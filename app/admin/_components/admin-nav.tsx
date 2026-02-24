@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Calendar, Swords } from "lucide-react";
+import { LayoutDashboard, Users, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/fighters", label: "Fighters", icon: Users, exact: false },
   { href: "/admin/events", label: "Events", icon: Calendar, exact: false },
-  { href: "/admin/fights", label: "Fights", icon: Swords, exact: false },
 ];
 
 export function AdminNav() {

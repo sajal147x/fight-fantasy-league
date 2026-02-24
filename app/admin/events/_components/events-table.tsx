@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Pencil, Trash2, Plus, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Pencil, Trash2, Plus, Loader2, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { addEvent, updateEvent, deleteEvent, type EventStatus } from "../actions";
+import { StatusBadge } from "./status-badge";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -105,31 +107,6 @@ function formatDateTime(iso: string | null) {
 function toDateTimeLocal(iso: string | null) {
   if (!iso) return "";
   return iso.slice(0, 16);
-}
-
-// ─── Status badge ─────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: EventStatus }) {
-  if (status === "live") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-neon/10 px-2.5 py-1 text-xs font-semibold text-neon">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-neon" />
-        Live
-      </span>
-    );
-  }
-  if (status === "completed") {
-    return (
-      <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-        Completed
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center rounded-full border border-border px-2.5 py-1 text-xs font-semibold text-foreground">
-      Upcoming
-    </span>
-  );
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -295,6 +272,13 @@ export function EventsTable({ events }: { events: Event[] }) {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
+                      <Link
+                        href={`/admin/events/${event.id}/fights`}
+                        className="rounded p-3 text-muted-foreground transition-colors hover:bg-neon/10 hover:text-neon active:bg-neon/20"
+                        aria-label={`Manage fights for ${event.name}`}
+                      >
+                        <Swords size={14} />
+                      </Link>
                       <button
                         onClick={() => openEdit(event)}
                         className="rounded p-3 text-muted-foreground transition-colors hover:bg-neon/10 hover:text-neon active:bg-neon/20"
