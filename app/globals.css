@@ -2,26 +2,94 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+/*
+  Single dark theme — app always runs with class="dark" on <html>.
+  Both :root and .dark are set to the same values so there is never
+  a flash of light theme.
+
+  Palette:
+    Background  #0a0a0a  →  hsl(0 0% 4%)
+    Card        #141414  →  hsl(0 0% 8%)
+    Border      #222222  →  hsl(0 0% 13%)
+    Input bg    #1a1a1a  →  hsl(0 0% 10%)
+    Foreground  #d4d4d4  →  hsl(0 0% 83%)   light grey
+    Muted fg    #6b6b6b  →  hsl(0 0% 42%)
+    Primary     #39ff14  →  hsl(111 100% 54%)  neon green
+    Primary fg  #050505  →  hsl(0 0% 2%)    near-black (text on neon btn)
+    Destructive #e53535  →  hsl(0 72% 55%)
+*/
+
+@layer base {
+  :root,
+  .dark {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 83%;
+
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 83%;
+
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 83%;
+
+    /* Neon green — primary buttons, active tabs, highlights */
+    --primary: 111 100% 54%;
+    --primary-foreground: 0 0% 2%;
+
+    --secondary: 0 0% 11%;
+    --secondary-foreground: 0 0% 83%;
+
+    --muted: 0 0% 11%;
+    --muted-foreground: 0 0% 42%;
+
+    --accent: 0 0% 13%;
+    --accent-foreground: 0 0% 83%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 13%;
+    --input: 0 0% 10%;
+    --ring: 111 100% 54%;
+
+    --chart-1: 111 100% 54%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+
+    --radius: 0.5rem;
+  }
+}
+
+/* Native date picker — force dark chrome so it doesn't flash white */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.55) sepia(1) saturate(4) hue-rotate(75deg);
+  cursor: pointer;
+  opacity: 0.7;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Neon glow on primary buttons */
+@layer components {
+  .btn-neon,
+  button[data-slot="button"]:not([data-variant]):not([class*="variant-"]),
+  [data-slot="button"].bg-primary {
+    box-shadow: 0 0 6px #39ff14, 0 0 20px rgba(57, 255, 20, 0.35);
+    transition: box-shadow 0.15s ease;
+  }
+
+  .btn-neon:hover,
+  button[data-slot="button"]:not([data-variant]):hover,
+  [data-slot="button"].bg-primary:hover {
+    box-shadow: 0 0 10px #39ff14, 0 0 32px rgba(57, 255, 20, 0.5),
+      0 0 60px rgba(57, 255, 20, 0.2);
   }
 }
