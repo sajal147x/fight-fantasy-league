@@ -1,15 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
-  insertEvent,
-  updateEvent as dbUpdateEvent,
-  deleteEvent as dbDeleteEvent,
-  type EventStatus,
-  type EventPayload,
-} from "@/lib/db/events";
-
-export type { EventStatus, EventPayload };
+import { insertEvent, updateEvent as dbUpdateEvent, deleteEvent as dbDeleteEvent } from "@/lib/db/events";
+import type { EventPayload } from "@/lib/db/events";
 
 export async function addEvent(payload: EventPayload) {
   const result = await insertEvent(payload);

@@ -1,14 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
-  insertFight,
-  deleteFight as dbDeleteFight,
-  type FightCategory,
-  type AddFightPayload,
-} from "@/lib/db/fights";
-
-export type { FightCategory, AddFightPayload };
+import { insertFight, deleteFight as dbDeleteFight } from "@/lib/db/fights";
+import type { AddFightPayload } from "@/lib/db/fights";
 
 export async function addFight(payload: AddFightPayload) {
   const result = await insertFight(payload);
