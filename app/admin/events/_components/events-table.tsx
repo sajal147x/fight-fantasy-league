@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Pencil, Trash2, Plus, Loader2, Swords } from "lucide-react";
+import { Pencil, Trash2, Plus, Loader2, Swords, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -42,7 +42,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-import { addEvent, updateEvent, deleteEvent } from "../actions";
+import { addEvent, updateEvent, deleteEvent, saveEventImage } from "../actions";
 import { StatusBadge } from "./status-badge";
 import type { EventRow, EventStatus } from "@/lib/db/events";
 
@@ -111,12 +111,28 @@ export function EventsTable({ events }: { events: EventRow[] }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
 
+  // Image upload state
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  // Incrementing this key forces the <Input type="file"> to remount, clearing
+  // any previously selected file when the dialog is reopened.
+  const [imageInputKey, setImageInputKey] = useState(0);
+
   const [deleteTarget, setDeleteTarget] = useState<EventRow | null>(null);
+
+  function resetImageState(existingUrl: string | null = null) {
+    // Revoke any outstanding object URL to prevent memory leaks
+    if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+    setImageFile(null);
+    setImagePreview(existingUrl);
+    setImageInputKey((k) => k + 1);
+  }
 
   function openAdd() {
     setEditing(null);
     setForm(EMPTY_FORM);
     setFormError(null);
+    resetImageState(null);
     setDialogOpen(true);
   }
 
@@ -131,11 +147,26 @@ export function EventsTable({ events }: { events: EventRow[] }) {
       status: event.status,
     });
     setFormError(null);
+    resetImageState(event.image_url);
     setDialogOpen(true);
+  }
+
+  function handleDialogOpenChange(open: boolean) {
+    if (formLoading) return;
+    if (!open) resetImageState(null);
+    setDialogOpen(open);
   }
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    // Revoke the previous blob URL before creating a new one
+    if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+    setImageFile(file);
+    setImagePreview(file ? URL.createObjectURL(file) : (editing?.image_url ?? null));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -157,13 +188,30 @@ export function EventsTable({ events }: { events: EventRow[] }) {
       ? await updateEvent(editing.id, payload)
       : await addEvent(payload);
 
-    setFormLoading(false);
-
     if (result.error) {
       setFormError(result.error);
+      setFormLoading(false);
       return;
     }
 
+    // Upload image if a new file was selected
+    if (imageFile) {
+      const eventId = editing ? editing.id : (result as { id: string }).id;
+      const fd = new FormData();
+      fd.append("eventId", eventId);
+      fd.append("image", imageFile);
+      const uploadResult = await saveEventImage(fd);
+      if (uploadResult?.error) {
+        // Image upload failed — event was saved but without photo.
+        // Surface the error non-blocking so the user can retry.
+        setFormError(`Event saved, but image upload failed: ${uploadResult.error}`);
+        setFormLoading(false);
+        startTransition(() => router.push(pathname));
+        return;
+      }
+    }
+
+    setFormLoading(false);
     setDialogOpen(false);
     startTransition(() => router.push(pathname));
   }
@@ -292,10 +340,7 @@ export function EventsTable({ events }: { events: EventRow[] }) {
       </div>
 
       {/* ── Add / Edit Dialog ─────────────────────────────────────────────────── */}
-      <Dialog
-        open={dialogOpen}
-        onOpenChange={(o) => !formLoading && setDialogOpen(o)}
-      >
+      <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-2rem)] flex-col overflow-y-auto border-border bg-card sm:w-full sm:max-w-lg">
           <DialogHeader className="shrink-0">
             <DialogTitle className="text-foreground">
@@ -304,6 +349,36 @@ export function EventsTable({ events }: { events: EventRow[] }) {
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-1">
+            {/* Image */}
+            <div className="space-y-1.5">
+              <Label htmlFor="ev-image">Image</Label>
+              <div className="flex items-center gap-3">
+                {/* Live preview */}
+                <div className="h-16 w-24 shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-border">
+                  {imagePreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={imagePreview}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <ImageIcon size={22} className="text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+                <Input
+                  key={imageInputKey}
+                  id="ev-image"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="cursor-pointer file:mr-3 file:cursor-pointer file:rounded file:border-0 file:bg-neon/10 file:px-2 file:py-1 file:text-xs file:font-medium file:text-neon hover:file:bg-neon/20"
+                />
+              </div>
+            </div>
+
             {/* Name */}
             <div className="space-y-1.5">
               <Label htmlFor="ev-name">

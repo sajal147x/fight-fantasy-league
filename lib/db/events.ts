@@ -12,6 +12,7 @@ export type EventRow = {
   venue: string | null;
   location: string | null;
   status: EventStatus;
+  image_url: string | null;
 };
 
 export type EventPayload = {
@@ -30,7 +31,7 @@ export async function getAllEvents(): Promise<EventRow[]> {
   const db = createAdminClient();
   const { data, error } = await db
     .from("events")
-    .select("id, name, type, date, venue, location, status")
+    .select("id, name, type, date, venue, location, status, image_url")
     .order("date", { ascending: false });
   if (error) throw new Error(error.message);
   return data;
@@ -41,7 +42,7 @@ export async function getEvent(id: string): Promise<EventRow | null> {
   const db = createAdminClient();
   const { data, error } = await db
     .from("events")
-    .select("id, name, type, date, venue, location, status")
+    .select("id, name, type, date, venue, location, status, image_url")
     .eq("id", id)
     .single();
   if (error) {
@@ -55,11 +56,15 @@ export async function getEvent(id: string): Promise<EventRow | null> {
 
 export async function insertEvent(
   payload: EventPayload
-): Promise<{ error?: string }> {
+): Promise<{ id?: string; error?: string }> {
   const db = createAdminClient();
-  const { error } = await db.from("events").insert(payload);
+  const { data, error } = await db
+    .from("events")
+    .insert(payload)
+    .select("id")
+    .single();
   if (error) return { error: error.message };
-  return {};
+  return { id: data.id };
 }
 
 export async function updateEvent(
@@ -77,4 +82,46 @@ export async function deleteEvent(id: string): Promise<{ error?: string }> {
   const { error } = await db.from("events").delete().eq("id", id);
   if (error) return { error: error.message };
   return {};
+}
+
+// ─── Image upload ─────────────────────────────────────────────────────────────
+
+/**
+ * Uploads an event image to the `events` storage bucket as `{eventId}.{ext}`,
+ * then stores the resulting public URL in events.image_url.
+ *
+ * Prerequisite migration:
+ *   ALTER TABLE public.events ADD COLUMN IF NOT EXISTS image_url text;
+ */
+export async function uploadEventImage(
+  eventId: string,
+  file: File
+): Promise<{ url: string } | { error: string }> {
+  const db = createAdminClient();
+
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+  const path = `${eventId}.${ext}`;
+
+  // Convert to ArrayBuffer for reliable upload in the Node.js runtime
+  const arrayBuffer = await file.arrayBuffer();
+
+  const { error: uploadError } = await db.storage
+    .from("events")
+    .upload(path, arrayBuffer, {
+      upsert: true,
+      contentType: file.type || `image/${ext}`,
+    });
+
+  if (uploadError) return { error: uploadError.message };
+
+  const { data: urlData } = db.storage.from("events").getPublicUrl(path);
+
+  const { error: updateError } = await db
+    .from("events")
+    .update({ image_url: urlData.publicUrl })
+    .eq("id", eventId);
+
+  if (updateError) return { error: updateError.message };
+
+  return { url: urlData.publicUrl };
 }

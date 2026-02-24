@@ -1,8 +1,9 @@
 import { getAllEvents } from "@/lib/db/events";
+import type { EventRow } from "@/lib/db/events";
 import { EventsTable } from "./_components/events-table";
 
 export default async function EventsPage() {
-  let events;
+  let events: EventRow[];
   try {
     events = await getAllEvents();
   } catch (err) {

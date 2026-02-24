@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
@@ -53,13 +54,24 @@ export default async function FightsPage({
 
       {/* ── Event header ── */}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
-            {event.name}
-          </h1>
-          {meta && (
-            <p className="text-sm text-muted-foreground">{meta}</p>
+        <div className="flex items-center gap-4">
+          {event.image_url && (
+            <Image
+              src={event.image_url}
+              alt={event.name}
+              width={80}
+              height={56}
+              className="rounded-md object-cover"
+            />
           )}
+          <div className="space-y-1">
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
+              {event.name}
+            </h1>
+            {meta && (
+              <p className="text-sm text-muted-foreground">{meta}</p>
+            )}
+          </div>
         </div>
         <StatusBadge status={event.status} />
       </div>

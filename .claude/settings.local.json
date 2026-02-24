@@ -3,7 +3,10 @@
     "allow": [
       "Bash(npx shadcn@latest:*)",
       "Bash(tail:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
