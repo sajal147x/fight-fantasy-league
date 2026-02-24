@@ -1,15 +1,13 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { getAllEvents } from "@/lib/db/events";
 import { EventsTable } from "./_components/events-table";
 
 export default async function EventsPage() {
-  const supabase = createAdminClient();
-  const { data: events, error } = await supabase
-    .from("events")
-    .select("id, name, type, date, venue, location, status")
-    .order("date", { ascending: false });
-
-  if (error) {
-    console.error("[events page]", error.message);
+  let events;
+  try {
+    events = await getAllEvents();
+  } catch (err) {
+    console.error("[events page]", err);
+    events = [];
   }
 
   return (
@@ -22,7 +20,7 @@ export default async function EventsPage() {
           Manage all events in the league.
         </p>
       </div>
-      <EventsTable events={events ?? []} />
+      <EventsTable events={events} />
     </div>
   );
 }

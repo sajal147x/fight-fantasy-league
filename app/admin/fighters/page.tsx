@@ -1,15 +1,13 @@
-import { createAdminClient } from "@/lib/supabase/admin";
-import { FightersTable } from "./_components/fighters-table";
+import { FighterRow, getAllFighters} from "@/lib/db/fighters";
+import {FightersTable} from "./_components/fighters-table";
 
 export default async function FightersPage() {
-  const supabase = createAdminClient();
-  const { data: fighters, error } = await supabase
-    .from("fighters")
-    .select("id, name, nickname, nationality, date_of_birth")
-    .order("name");
-
-  if (error) {
-    console.error("[fighters page]", error.message);
+  let fighters: FighterRow[];
+  try {
+    fighters = await getAllFighters();
+  } catch (err) {
+    console.error("[fighters page]", err);
+    fighters = [];
   }
 
   return (
@@ -22,7 +20,7 @@ export default async function FightersPage() {
           Manage all fighters in the league.
         </p>
       </div>
-      <FightersTable fighters={fighters ?? []} />
+      <FightersTable fighters={fighters} />
     </div>
   );
 }

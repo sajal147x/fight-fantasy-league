@@ -1,4 +1,4 @@
-import type { EventStatus } from "../actions";
+import type { EventStatus } from "@/lib/db/events";
 
 export function StatusBadge({ status }: { status: EventStatus | string | null }) {
   if (status === "live") {

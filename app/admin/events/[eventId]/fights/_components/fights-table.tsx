@@ -54,29 +54,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-import { addFight, deleteFight, type FightCategory } from "../actions";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type Fighter = {
-  id: string;
-  name: string;
-  nickname: string | null;
-};
-
-type FightParticipant = {
-  corner: "fighter_1" | "fighter_2";
-  fighters: Fighter;
-};
-
-export type FightRow = {
-  id: string;
-  bout_order: number;
-  weight_class: string | null;
-  category: string;
-  status: string | null;
-  fight_participants: FightParticipant[];
-};
+import { addFight, deleteFight } from "../actions";
+import type { FightRow, FightCategory } from "@/lib/db/fights";
+import type { FighterSummary } from "@/lib/db/fighters";
 
 type FormState = {
   fighter1Id: string;
@@ -111,7 +91,7 @@ const CATEGORY_LABEL: Record<FightCategory, string> = {
 function getParticipant(
   fight: FightRow,
   slot: "fighter_1" | "fighter_2"
-): Fighter | null {
+): FighterSummary | null {
   return fight.fight_participants.find((p) => p.corner === slot)?.fighters ?? null;
 }
 
@@ -124,7 +104,7 @@ function FighterCombobox({
   placeholder,
   excludeId,
 }: {
-  fighters: Fighter[];
+  fighters: FighterSummary[];
   value: string;
   onChange: (id: string) => void;
   placeholder: string;
@@ -248,7 +228,7 @@ export function FightsTable({
 }: {
   eventId: string;
   fights: FightRow[];
-  fighters: Fighter[];
+  fighters: FighterSummary[];
 }) {
   const router = useRouter();
   const pathname = usePathname();

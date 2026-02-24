@@ -1,46 +1,27 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { getEvent } from "@/lib/db/events";
+import { getFightsForEvent } from "@/lib/db/fights";
+import { getAllFighterSummaries } from "@/lib/db/fighters";
 import { StatusBadge } from "../../_components/status-badge";
-import { FightsTable, type FightRow } from "./_components/fights-table";
+import { FightsTable } from "./_components/fights-table";
 
 export default async function FightsPage({
   params,
 }: {
   params: { eventId: string };
 }) {
-  const supabase = createAdminClient();
   const { eventId } = params;
 
   // Fetch event + fights + all fighters in parallel
-  const [eventRes, fightsRes, fightersRes] = await Promise.all([
-    supabase
-      .from("events")
-      .select("id, name, type, date, venue, location, status")
-      .eq("id", eventId)
-      .single(),
-
-    supabase
-      .from("fights")
-      .select(
-        `id, bout_order, weight_class, category, status,
-         fight_participants ( corner, fighters ( id, name, nickname ) )`
-      )
-      .eq("event_id", eventId)
-      .order("bout_order"),
-
-    supabase
-      .from("fighters")
-      .select("id, name, nickname")
-      .order("name"),
+  const [event, fights, fighters] = await Promise.all([
+    getEvent(eventId),
+    getFightsForEvent(eventId),
+    getAllFighterSummaries(),
   ]);
 
-  if (eventRes.error || !eventRes.data) notFound();
-
-  const event = eventRes.data;
-  const fights = fightsRes.data ?? [];
-  const fighters = fightersRes.data ?? [];
+  if (!event) notFound();
 
   // Format date for display
   const formattedDate = event.date
@@ -86,7 +67,7 @@ export default async function FightsPage({
       {/* ── Fights table ── */}
       <FightsTable
         eventId={eventId}
-        fights={fights as unknown as FightRow[]}
+        fights={fights}
         fighters={fighters}
       />
     </div>

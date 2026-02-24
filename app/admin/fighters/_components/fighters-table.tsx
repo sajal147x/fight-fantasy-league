@@ -35,16 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { addFighter, updateFighter, deleteFighter } from "../actions";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type Fighter = {
-  id: string;
-  name: string;
-  nickname: string | null;
-  nationality: string | null;
-  date_of_birth: string | null;
-};
+import type { FighterRow } from "@/lib/db/fighters";
 
 type FormState = {
   name: string;
@@ -75,18 +66,18 @@ function formatDate(iso: string | null) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function FightersTable({ fighters }: { fighters: Fighter[] }) {
+export function FightersTable({ fighters }: { fighters: FighterRow[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Fighter | null>(null);
+  const [editing, setEditing] = useState<FighterRow | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
 
-  const [deleteTarget, setDeleteTarget] = useState<Fighter | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<FighterRow | null>(null);
 
   function openAdd() {
     setEditing(null);
@@ -95,7 +86,7 @@ export function FightersTable({ fighters }: { fighters: Fighter[] }) {
     setDialogOpen(true);
   }
 
-  function openEdit(fighter: Fighter) {
+  function openEdit(fighter: FighterRow) {
     setEditing(fighter);
     setForm({
       name: fighter.name,

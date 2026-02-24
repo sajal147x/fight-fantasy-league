@@ -42,20 +42,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-import { addEvent, updateEvent, deleteEvent, type EventStatus } from "../actions";
+import { addEvent, updateEvent, deleteEvent } from "../actions";
 import { StatusBadge } from "./status-badge";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type Event = {
-  id: string;
-  name: string;
-  type: string | null;
-  date: string | null;
-  venue: string | null;
-  location: string | null;
-  status: EventStatus;
-};
+import type { EventRow, EventStatus } from "@/lib/db/events";
 
 type FormState = {
   name: string;
@@ -111,18 +100,18 @@ function toDateTimeLocal(iso: string | null) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function EventsTable({ events }: { events: Event[] }) {
+export function EventsTable({ events }: { events: EventRow[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Event | null>(null);
+  const [editing, setEditing] = useState<EventRow | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
 
-  const [deleteTarget, setDeleteTarget] = useState<Event | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<EventRow | null>(null);
 
   function openAdd() {
     setEditing(null);
@@ -131,7 +120,7 @@ export function EventsTable({ events }: { events: Event[] }) {
     setDialogOpen(true);
   }
 
-  function openEdit(event: Event) {
+  function openEdit(event: EventRow) {
     setEditing(event);
     setForm({
       name: event.name,

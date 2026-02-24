@@ -1,38 +1,32 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  insertFighter,
+  updateFighter as dbUpdateFighter,
+  deleteFighter as dbDeleteFighter,
+  type FighterPayload,
+} from "@/lib/db/fighters";
 
-type FighterPayload = {
-  name: string;
-  nickname: string | null;
-  nationality: string | null;
-  date_of_birth: string | null;
-};
+export type { FighterPayload };
 
 export async function addFighter(payload: FighterPayload) {
-  const supabase = createAdminClient();
-  const { error } = await supabase.from("fighters").insert(payload);
-  if (error) return { error: error.message };
+  const result = await insertFighter(payload);
+  if (result.error) return { error: result.error };
   revalidatePath("/admin/fighters");
   return {};
 }
 
 export async function updateFighter(id: string, payload: FighterPayload) {
-  const supabase = createAdminClient();
-  const { error } = await supabase
-    .from("fighters")
-    .update(payload)
-    .eq("id", id);
-  if (error) return { error: error.message };
+  const result = await dbUpdateFighter(id, payload);
+  if (result.error) return { error: result.error };
   revalidatePath("/admin/fighters");
   return {};
 }
 
 export async function deleteFighter(id: string) {
-  const supabase = createAdminClient();
-  const { error } = await supabase.from("fighters").delete().eq("id", id);
-  if (error) return { error: error.message };
+  const result = await dbDeleteFighter(id);
+  if (result.error) return { error: result.error };
   revalidatePath("/admin/fighters");
   return {};
 }

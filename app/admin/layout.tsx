@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { getUserProfile } from "@/lib/db/users";
 import { AdminSidebar } from "./_components/admin-sidebar";
 
 export default async function AdminLayout({
@@ -20,17 +20,8 @@ export default async function AdminLayout({
   }
 
   // 2. Must have is_admin = 'YES' in public.users.
-  //    Uses the service-role client so RLS never blocks the lookup.
-  const adminSupabase = createAdminClient();
-  const { data: profile, error: profileError } = await adminSupabase
-    .from("users")
-    .select("is_admin")
-    .eq("id", user.id)
-    .single();
-
-  if (profileError) {
-    console.error("[admin layout] is_admin lookup failed:", profileError.message);
-  }
+  //    getUserProfile uses the service-role client so RLS never blocks the lookup.
+  const profile = await getUserProfile(user.id);
 
   if (profile?.is_admin !== "YES") {
     redirect("/dashboard");
