@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Pencil, Trash2, Plus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -77,6 +77,7 @@ function formatDate(iso: string | null) {
 
 export function FightersTable({ fighters }: { fighters: Fighter[] }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -130,14 +131,14 @@ export function FightersTable({ fighters }: { fighters: Fighter[] }) {
     }
 
     setDialogOpen(false);
-    startTransition(() => router.refresh());
+    startTransition(() => router.push(pathname));
   }
 
   async function handleDelete() {
     if (!deleteTarget) return;
     const result = await deleteFighter(deleteTarget.id);
     setDeleteTarget(null);
-    if (!result.error) startTransition(() => router.refresh());
+    if (!result.error) startTransition(() => router.push(pathname));
   }
 
   const isAdding = !editing;

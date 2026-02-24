@@ -46,7 +46,6 @@ function LoginForm() {
     }
 
     router.push("/dashboard");
-    router.refresh();
   }
 
   async function handleSignUp(e: React.FormEvent) {
