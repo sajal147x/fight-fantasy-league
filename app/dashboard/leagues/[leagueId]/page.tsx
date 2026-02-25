@@ -217,6 +217,12 @@ export default async function LeagueDetailPage({
           ) : (
             <div className="space-y-3">
               {leagueEvents.map(({ id, events: event }) => (
+                  <Link
+                      key={id}
+                      href={`/dashboard/leagues/${leagueId}/${event.id}`}
+                      className="block overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-neon-sm"
+                  >
+
                 <div
                   key={id}
                   className="overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-neon-sm"
@@ -272,8 +278,11 @@ export default async function LeagueDetailPage({
                     </div>
                   </div>
                 </div>
+                  </Link>
               ))}
+
             </div>
+
           )}
         </section>
       </main>
