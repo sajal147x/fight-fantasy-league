@@ -27,7 +27,7 @@ export default async function DashboardPage() {
       <header className="border-b border-border bg-card/60 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <span className="text-lg font-extrabold tracking-tight text-primary drop-shadow-neon-sm">
-            Fight Fantasy League
+            Fantasy Fight League
           </span>
           <div className="flex items-center gap-4">
             <span className="hidden text-xs text-muted-foreground sm:inline">

@@ -14,7 +14,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Fight Fantasy League",
+  title: "Fantasy Fight League",
   description: "The ultimate fight fantasy league experience.",
 };
 
