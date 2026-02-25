@@ -8,6 +8,11 @@ export type FighterDetails = {
   nickname: string | null;
   image_url: string | null;
   nationality: string | null;
+  age: number | null;
+  height: number | null;
+  weight: number | null;
+  reach: number | null;
+  record: string | null;
 };
 
 export type FightParticipantDetails = {
@@ -55,10 +60,10 @@ export async function getEventFightsWithParticipants(
     .from("fights")
     .select(
       `id, bout_order, weight_class, category, status,
-       fight_participants ( corner, odds, fighters ( id, name, nickname, image_url, nationality ) )`
+       fight_participants ( corner, odds, fighters ( id, name, nickname, image_url, nationality, age, height, weight, reach, record ) )`
     )
     .eq("event_id", eventId)
-    .order("bout_order", { ascending: false });
+    .order("bout_order", { ascending: true });
   if (error) throw new Error(error.message);
   return data as unknown as FightWithDetails[];
 }

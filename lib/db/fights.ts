@@ -5,9 +5,17 @@ import type { FighterSummary } from "./fighters";
 
 export type FightCategory = "main_card" | "prelim" | "early_prelim";
 
+type FighterInFight = FighterSummary & {
+  age: number | null;
+  height: number | null;
+  weight: number | null;
+  reach: number | null;
+  record: string | null;
+};
+
 export type FightParticipant = {
   corner: "fighter_1" | "fighter_2";
-  fighters: FighterSummary;
+  fighters: FighterInFight;
 };
 
 export type FightRow = {
@@ -37,7 +45,7 @@ export async function getFightsForEvent(eventId: string): Promise<FightRow[]> {
     .from("fights")
     .select(
       `id, bout_order, weight_class, category, status,
-       fight_participants ( corner, fighters ( id, name, nickname ) )`
+       fight_participants ( corner, fighters ( id, name, nickname, age, height, weight, reach, record ) )`
     )
     .eq("event_id", eventId)
     .order("bout_order");

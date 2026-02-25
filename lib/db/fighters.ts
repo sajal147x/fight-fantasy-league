@@ -8,8 +8,12 @@ export type FighterRow = {
   name: string;
   nickname: string | null;
   nationality: string | null;
-  date_of_birth: string | null;
   image_url: string | null;
+  age: number | null;
+  height: number | null;
+  weight: number | null;
+  reach: number | null;
+  record: string | null;
 };
 
 /** Minimal fighter shape used in fight dropdowns and nested relations. */
@@ -25,7 +29,11 @@ export type FighterPayload = {
   name: string;
   nickname: string | null;
   nationality: string | null;
-  date_of_birth: string | null;
+  age: number | null;
+  height: number | null;
+  weight: number | null;
+  reach: number | null;
+  record: string | null;
 };
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
@@ -35,7 +43,7 @@ export async function getAllFighters(): Promise<FighterRow[]> {
   const db = createAdminClient();
   const { data, error } = await db
     .from("fighters")
-    .select("id, name, nickname, nationality, date_of_birth, image_url")
+    .select("id, name, nickname, nationality, image_url, age, height, weight, reach, record")
     .order("name");
   if (error) throw new Error(error.message);
   return data;

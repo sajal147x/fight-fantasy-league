@@ -91,8 +91,27 @@ const CATEGORY_LABEL: Record<FightCategory, string> = {
 function getParticipant(
   fight: FightRow,
   slot: "fighter_1" | "fighter_2"
-): FighterSummary | null {
+) {
   return fight.fight_participants.find((p) => p.corner === slot)?.fighters ?? null;
+}
+
+function FighterCell({ fighter }: { fighter: ReturnType<typeof getParticipant> }) {
+  if (!fighter) return <span className="text-muted-foreground">TBD</span>;
+
+  const stats = [
+    fighter.age != null && `${fighter.age}y`,
+    fighter.height != null && `${fighter.height}ft`,
+    fighter.weight != null && `${fighter.weight}lbs`,
+    fighter.reach != null && `${fighter.reach}" reach`,
+    fighter.record,
+  ].filter(Boolean).join(" · ");
+
+  return (
+    <div>
+      <div className="font-medium text-foreground">{fighter.name}</div>
+      {stats && <div className="text-xs text-muted-foreground">{stats}</div>}
+    </div>
+  );
 }
 
 // ─── Fighter Combobox ─────────────────────────────────────────────────────────
@@ -364,12 +383,8 @@ export function FightsTable({
                     <TableCell className="font-mono text-sm font-bold text-neon">
                       {fight.bout_order}
                     </TableCell>
-                    <TableCell className="font-medium text-foreground">
-                      {f1?.name ?? <span className="text-muted-foreground">TBD</span>}
-                    </TableCell>
-                    <TableCell className="font-medium text-foreground">
-                      {f2?.name ?? <span className="text-muted-foreground">TBD</span>}
-                    </TableCell>
+                    <TableCell><FighterCell fighter={f1} /></TableCell>
+                    <TableCell><FighterCell fighter={f2} /></TableCell>
                     <TableCell className="hidden text-muted-foreground md:table-cell">
                       {fight.weight_class ?? "—"}
                     </TableCell>

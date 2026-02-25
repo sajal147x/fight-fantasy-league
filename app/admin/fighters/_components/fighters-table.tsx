@@ -43,28 +43,23 @@ type FormState = {
   name: string;
   nickname: string;
   nationality: string;
-  date_of_birth: string;
+  age: string;
+  height: string;
+  weight: string;
+  reach: string;
+  record: string;
 };
 
 const EMPTY_FORM: FormState = {
   name: "",
   nickname: "",
   nationality: "",
-  date_of_birth: "",
+  age: "",
+  height: "",
+  weight: "",
+  reach: "",
+  record: "",
 };
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Format a YYYY-MM-DD string as "14 Jul 1988" with no timezone drift. */
-function formatDate(iso: string | null) {
-  if (!iso) return "—";
-  const [y, m, d] = iso.split("-");
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-  ];
-  return `${d} ${months[parseInt(m) - 1]} ${y}`;
-}
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
@@ -147,7 +142,11 @@ export function FightersTable({ fighters }: { fighters: FighterRow[] }) {
       name: fighter.name,
       nickname: fighter.nickname ?? "",
       nationality: fighter.nationality ?? "",
-      date_of_birth: fighter.date_of_birth ?? "",
+      age: fighter.age != null ? String(fighter.age) : "",
+      height: fighter.height != null ? String(fighter.height) : "",
+      weight: fighter.weight != null ? String(fighter.weight) : "",
+      reach: fighter.reach != null ? String(fighter.reach) : "",
+      record: fighter.record ?? "",
     });
     setFormError(null);
     resetImageState(fighter.image_url);
@@ -177,7 +176,11 @@ export function FightersTable({ fighters }: { fighters: FighterRow[] }) {
       name: form.name,
       nickname: form.nickname.trim() || null,
       nationality: form.nationality.trim() || null,
-      date_of_birth: form.date_of_birth || null,
+      age: form.age !== "" ? parseInt(form.age, 10) : null,
+      height: form.height !== "" ? parseFloat(form.height) : null,
+      weight: form.weight !== "" ? parseInt(form.weight, 10) : null,
+      reach: form.reach !== "" ? parseInt(form.reach, 10) : null,
+      record: form.record.trim() || null,
     };
 
     const result = editing
@@ -245,9 +248,6 @@ export function FightersTable({ fighters }: { fighters: FighterRow[] }) {
               <TableHead className="hidden text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:table-cell">
                 Nationality
               </TableHead>
-              <TableHead className="hidden text-xs font-semibold uppercase tracking-wider text-muted-foreground md:table-cell">
-                Date of Birth
-              </TableHead>
               <TableHead className="w-[80px] text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Actions
               </TableHead>
@@ -258,7 +258,7 @@ export function FightersTable({ fighters }: { fighters: FighterRow[] }) {
             {fighters.length === 0 ? (
               <TableRow className="border-border hover:bg-transparent">
                 <TableCell
-                  colSpan={5}
+                  colSpan={4}
                   className="py-12 text-center text-sm text-muted-foreground"
                 >
                   No fighters yet.{" "}
@@ -290,9 +290,6 @@ export function FightersTable({ fighters }: { fighters: FighterRow[] }) {
                   </TableCell>
                   <TableCell className="hidden text-muted-foreground sm:table-cell">
                     {fighter.nationality ?? "—"}
-                  </TableCell>
-                  <TableCell className="hidden text-muted-foreground md:table-cell">
-                    {formatDate(fighter.date_of_birth)}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
@@ -395,16 +392,64 @@ export function FightersTable({ fighters }: { fighters: FighterRow[] }) {
               />
             </div>
 
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="f-age">Age</Label>
+                <Input
+                  id="f-age"
+                  type="number"
+                  min={0}
+                  placeholder="30"
+                  value={form.age}
+                  onChange={(e) => setForm({ ...form, age: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="f-weight">Weight (lbs)</Label>
+                <Input
+                  id="f-weight"
+                  type="number"
+                  min={0}
+                  placeholder="155"
+                  value={form.weight}
+                  onChange={(e) => setForm({ ...form, weight: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="f-height">Height (ft)</Label>
+                <Input
+                  id="f-height"
+                  type="number"
+                  min={0}
+                  step="any"
+                  placeholder="6.1"
+                  value={form.height}
+                  onChange={(e) => setForm({ ...form, height: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="f-reach">Reach (in)</Label>
+                <Input
+                  id="f-reach"
+                  type="number"
+                  min={0}
+                  placeholder="74"
+                  value={form.reach}
+                  onChange={(e) => setForm({ ...form, reach: e.target.value })}
+                />
+              </div>
+            </div>
+
             <div className="space-y-1.5">
-              <Label htmlFor="f-dob">Date of Birth</Label>
+              <Label htmlFor="f-record">Record (W-L-D)</Label>
               <Input
-                id="f-dob"
-                type="date"
-                value={form.date_of_birth}
-                onChange={(e) =>
-                  setForm({ ...form, date_of_birth: e.target.value })
-                }
-                className="[color-scheme:dark]"
+                id="f-record"
+                placeholder="22-6-0"
+                value={form.record}
+                onChange={(e) => setForm({ ...form, record: e.target.value })}
               />
             </div>
 

@@ -160,14 +160,23 @@ function FighterBox({
 
             {/* Details rows */}
             <div className="w-full divide-y divide-border rounded-lg border border-border">
-              <div className="flex items-center justify-between px-4 py-2.5">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Nationality
-                </span>
-                <span className="text-sm font-medium text-foreground">
-                  {fighter.nationality ?? "—"}
-                </span>
-              </div>
+              {[
+                { label: "Nationality", value: fighter.nationality },
+                { label: "Age", value: fighter.age != null ? `${fighter.age}` : null },
+                { label: "Height", value: fighter.height != null ? `${fighter.height} ft` : null },
+                { label: "Weight", value: fighter.weight != null ? `${fighter.weight} lbs` : null },
+                { label: "Reach", value: fighter.reach != null ? `${fighter.reach}"` : null },
+                { label: "Record", value: fighter.record },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {label}
+                  </span>
+                  <span className="text-sm font-medium text-foreground">
+                    {value ?? "—"}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </DialogContent>
