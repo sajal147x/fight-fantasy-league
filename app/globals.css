@@ -20,7 +20,7 @@
     Input bg    #1a1a1a  →  hsl(0 0% 10%)
     Foreground  #d4d4d4  →  hsl(0 0% 83%)   light grey
     Muted fg    #6b6b6b  →  hsl(0 0% 42%)
-    Primary     #39ff14  →  hsl(111 100% 54%)  neon green
+    Primary     #0080ff  →  hsl(210 100% 50%)  neon blue
     Primary fg  #050505  →  hsl(0 0% 2%)    near-black (text on neon btn)
     Destructive #e53535  →  hsl(0 72% 55%)
 */
@@ -37,8 +37,8 @@
     --popover: 0 0% 8%;
     --popover-foreground: 0 0% 83%;
 
-    /* Neon green — primary buttons, active tabs, highlights */
-    --primary: 111 100% 54%;
+    /* Neon blue — primary buttons, active tabs, highlights */
+    --primary: 210 100% 50%;
     --primary-foreground: 0 0% 2%;
 
     --secondary: 0 0% 11%;
@@ -55,9 +55,9 @@
 
     --border: 0 0% 13%;
     --input: 0 0% 10%;
-    --ring: 111 100% 54%;
+    --ring: 210 100% 50%;
 
-    --chart-1: 111 100% 54%;
+    --chart-1: 210 100% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
@@ -69,7 +69,7 @@
 
 /* Native date picker — force dark chrome so it doesn't flash white */
 input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.55) sepia(1) saturate(4) hue-rotate(75deg);
+  filter: invert(0.55) sepia(1) saturate(4) hue-rotate(165deg);
   cursor: pointer;
   opacity: 0.7;
 }
@@ -82,14 +82,14 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   .btn-neon,
   button[data-slot="button"]:not([data-variant]):not([class*="variant-"]),
   [data-slot="button"].bg-primary {
-    box-shadow: 0 0 6px #39ff14, 0 0 20px rgba(57, 255, 20, 0.35);
+    box-shadow: 0 0 6px #0080ff, 0 0 20px rgba(0, 128, 255, 0.35);
     transition: box-shadow 0.15s ease;
   }
 
   .btn-neon:hover,
   button[data-slot="button"]:not([data-variant]):hover,
   [data-slot="button"].bg-primary:hover {
-    box-shadow: 0 0 10px #39ff14, 0 0 32px rgba(57, 255, 20, 0.5),
-      0 0 60px rgba(57, 255, 20, 0.2);
+    box-shadow: 0 0 10px #0080ff, 0 0 32px rgba(0, 128, 255, 0.5),
+      0 0 60px rgba(0, 128, 255, 0.2);
   }
 }
