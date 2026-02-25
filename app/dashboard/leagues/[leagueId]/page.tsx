@@ -217,15 +217,11 @@ export default async function LeagueDetailPage({
           ) : (
             <div className="space-y-3">
               {leagueEvents.map(({ id, events: event }) => (
-                  <Link
-                      key={id}
-                      href={`/dashboard/leagues/${leagueId}/${event.id}`}
-                      className="block overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-neon-sm"
-                  >
 
-                <div
+                <Link
                   key={id}
-                  className="overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-neon-sm"
+                  href={`/dashboard/leagues/${leagueId}/events/${event.id}`}
+                  className="block overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-neon-sm"
                 >
                   {/* Mobile: image full-bleed above text.
                       sm+: flex row with thumbnail on the left. */}
@@ -277,8 +273,7 @@ export default async function LeagueDetailPage({
                       </div>
                     </div>
                   </div>
-                </div>
-                  </Link>
+                </Link>
               ))}
 
             </div>
@@ -289,3 +284,4 @@ export default async function LeagueDetailPage({
     </div>
   );
 }
+
