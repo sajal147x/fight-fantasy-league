@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { CalendarDays, ChevronLeft, MapPin, Swords } from "lucide-react";
+import { ChevronLeft, MapPin, Swords } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getLeagueById, getMembershipForUser } from "@/lib/db/leagues";
 import { getEvent } from "@/lib/db/events";
@@ -10,22 +10,7 @@ import {
 } from "@/lib/db/picks";
 import { StatusBadge } from "@/app/admin/events/_components/status-badge";
 import { FightsClient } from "./_components/fights-client";
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatDateTime(iso: string | null) {
-  if (!iso) return null;
-  return new Date(iso).toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "UTC",
-    hour12: true,
-  });
-}
+import { EventCountdown } from "@/components/events/EventCountdown";
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -57,8 +42,10 @@ export default async function EventFightsPage({
     getUserPicksForEvent(user.id, leagueId, eventId),
   ]);
 
-  // Picks are locked once the event date has passed
-  const isLocked = event.date ? new Date() >= new Date(event.date) : false;
+  // Picks lock 1 hour before the event start time
+  const isLocked = event.date
+    ? new Date() >= new Date(new Date(event.date).getTime() - 60 * 60 * 1000)
+    : false;
 
   return (
     <div className="min-h-screen bg-background">
@@ -125,12 +112,7 @@ export default async function EventFightsPage({
               </div>
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                {event.date && (
-                  <span className="flex items-center gap-1">
-                    <CalendarDays size={12} />
-                    {formatDateTime(event.date)} UTC
-                  </span>
-                )}
+                {event.date && <EventCountdown eventDate={event.date} />}
                 {(event.venue || event.location) && (
                   <span className="flex items-center gap-1">
                     <MapPin size={12} />
@@ -151,7 +133,8 @@ export default async function EventFightsPage({
           fights={fights}
           initialPicks={picks}
           leagueId={leagueId}
-          isLocked={isLocked}
+          initialIsLocked={isLocked}
+          eventDate={event.date}
         />
       </main>
     </div>

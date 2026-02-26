@@ -349,7 +349,7 @@ export function FightersTable({ fighters }: { fighters: FighterRow[] }) {
                   key={imageInputKey}
                   id="f-image"
                   type="file"
-                  accept="image/*"
+                  accept=".jpg,.jpeg,.png,.webp,.avif"
                   onChange={handleFileChange}
                   className="cursor-pointer file:mr-3 file:cursor-pointer file:rounded file:border-0 file:bg-neon/10 file:px-2 file:py-1 file:text-xs file:font-medium file:text-neon hover:file:bg-neon/20"
                 />
