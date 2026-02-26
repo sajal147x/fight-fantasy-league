@@ -27,6 +27,10 @@ export type FightWithDetails = {
   weight_class: string | null;
   category: string;
   status: string | null;
+  winner_id: string | null;
+  win_method: string | null;
+  round: number | null;
+  time: string | null;
   fight_participants: FightParticipantDetails[];
 };
 
@@ -59,7 +63,7 @@ export async function getEventFightsWithParticipants(
   const { data, error } = await db
     .from("fights")
     .select(
-      `id, bout_order, weight_class, category, status,
+      `id, bout_order, weight_class, category, status, winner_id, win_method, round, time,
        fight_participants ( corner, odds, fighters ( id, name, nickname, image_url, nationality, age, height, weight, reach, record ) )`
     )
     .eq("event_id", eventId)

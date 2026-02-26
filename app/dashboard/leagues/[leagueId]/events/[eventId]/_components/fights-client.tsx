@@ -16,10 +16,20 @@ import {
 } from "@/components/ui/dialog";
 import { savePick } from "../actions";
 import type { FightWithDetails, FighterDetails, PickRow } from "@/lib/db/picks";
+import { formatWinMethod } from "@/lib/utils/fights";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type PicksMap = Record<string, string>; // fight_id → picked_fighter_id
+
+function buildResultLabel(fight: FightWithDetails): string | null {
+  if (!fight.winner_id) return null;
+  const parts: string[] = [];
+  if (fight.win_method) parts.push(formatWinMethod(fight.win_method));
+  if (fight.round != null) parts.push(`R${fight.round}`);
+  if (fight.time) parts.push(fight.time);
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
 
 function computeIsLocked(eventDate: string | null): boolean {
   if (!eventDate) return false;
@@ -52,6 +62,9 @@ interface FighterBoxProps {
   isEditing: boolean;
   isLocked: boolean;
   isSaving: boolean;
+  isWinner: boolean;
+  isLoser: boolean;
+  resultLabel: string | null;
   onClick: () => void;
 }
 
@@ -62,6 +75,9 @@ function FighterBox({
   isEditing,
   isLocked,
   isSaving,
+  isWinner,
+  isLoser,
+  resultLabel,
   onClick,
 }: FighterBoxProps) {
   const [statsOpen, setStatsOpen] = useState(false);
@@ -89,7 +105,15 @@ function FighterBox({
         )}
       >
         {/* Fighter image */}
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-transparent sm:h-20 sm:w-20">
+        <div
+          className={cn(
+            "relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 sm:h-20 sm:w-20",
+            isWinner
+              ? "border-green-500 shadow-[0_0_6px_#22c55e,0_0_16px_rgba(34,197,94,0.35)]"
+              : "border-transparent",
+            isLoser && "opacity-40 grayscale"
+          )}
+        >
           {fighter.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -115,6 +139,13 @@ function FighterBox({
         <span className="text-center text-xs font-bold leading-tight text-foreground sm:text-sm">
           {fighter.name}
         </span>
+
+        {/* Result label — winner only */}
+        {resultLabel && (
+          <span className="text-center text-[10px] font-semibold tracking-wide text-green-500">
+            {resultLabel}
+          </span>
+        )}
 
         {/* Odds */}
         {odds ? (
@@ -419,6 +450,10 @@ export function FightsClient({
                       (p) => p.corner === "fighter_2"
                     );
                     const pickedFighterId = picks[fight.id];
+                    const hasResult = fight.winner_id !== null;
+                    const resultLabel = buildResultLabel(fight);
+                    const f1IsWinner = hasResult && f1 != null && f1.fighters.id === fight.winner_id;
+                    const f2IsWinner = hasResult && f2 != null && f2.fighters.id === fight.winner_id;
 
                     return (
                       <div
@@ -438,6 +473,9 @@ export function FightsClient({
                               isSaving={
                                 savingKey === `${fight.id}:${f1.fighters.id}`
                               }
+                              isWinner={f1IsWinner}
+                              isLoser={hasResult && !f1IsWinner}
+                              resultLabel={f1IsWinner ? resultLabel : null}
                               onClick={() =>
                                 handlePick(fight.id, f1.fighters.id)
                               }
@@ -466,6 +504,9 @@ export function FightsClient({
                               isSaving={
                                 savingKey === `${fight.id}:${f2.fighters.id}`
                               }
+                              isWinner={f2IsWinner}
+                              isLoser={hasResult && !f2IsWinner}
+                              resultLabel={f2IsWinner ? resultLabel : null}
                               onClick={() =>
                                 handlePick(fight.id, f2.fighters.id)
                               }
