@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Plus, Trash2, Loader2, ChevronsUpDown, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -54,25 +54,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-import { addFight, deleteFight } from "../actions";
+import { addFight, updateFight, deleteFight } from "../actions";
 import type { FightRow, FightCategory } from "@/lib/db/fights";
 import type { FighterSummary } from "@/lib/db/fighters";
 
-type FormState = {
-  fighter1Id: string;
-  fighter2Id: string;
-  weightClass: string;
-  category: FightCategory;
-  boutOrder: string;
-};
-
-const EMPTY_FORM: FormState = {
-  fighter1Id: "",
-  fighter2Id: "",
-  weightClass: "",
-  category: "main_card",
-  boutOrder: "1",
-};
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const CATEGORIES: { value: FightCategory; label: string }[] = [
   { value: "main_card", label: "Main Card" },
@@ -86,12 +72,73 @@ const CATEGORY_LABEL: Record<FightCategory, string> = {
   early_prelim: "Early Prelim",
 };
 
+const STATUSES = [
+  { value: "scheduled", label: "Scheduled" },
+  { value: "live", label: "Live" },
+  { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+const WIN_METHODS = [
+  { value: "ko_tko", label: "KO/TKO" },
+  { value: "submission", label: "Submission" },
+  { value: "decision_unanimous", label: "Decision - Unanimous" },
+  { value: "decision_split", label: "Decision - Split" },
+  { value: "decision_majority", label: "Decision - Majority" },
+];
+
+// ─── Form types ───────────────────────────────────────────────────────────────
+
+type AddFormState = {
+  fighter1Id: string;
+  fighter2Id: string;
+  weightClass: string;
+  category: FightCategory;
+  boutOrder: string;
+};
+
+const EMPTY_ADD_FORM: AddFormState = {
+  fighter1Id: "",
+  fighter2Id: "",
+  weightClass: "",
+  category: "main_card",
+  boutOrder: "1",
+};
+
+type EditFormState = {
+  fighter1Id: string;
+  fighter2Id: string;
+  weightClass: string;
+  category: FightCategory;
+  boutOrder: string;
+  status: string;
+  // "" = none; "none" sentinel used only within Select value prop
+  winnerId: string;
+  winMethod: string;
+  round: string;
+  time: string;
+};
+
+function fightToEditForm(fight: FightRow): EditFormState {
+  const f1 = fight.fight_participants.find((p) => p.corner === "fighter_1")?.fighters;
+  const f2 = fight.fight_participants.find((p) => p.corner === "fighter_2")?.fighters;
+  return {
+    fighter1Id: f1?.id ?? "",
+    fighter2Id: f2?.id ?? "",
+    weightClass: fight.weight_class ?? "",
+    category: fight.category as FightCategory,
+    boutOrder: String(fight.bout_order),
+    status: fight.status ?? "scheduled",
+    winnerId: fight.winner_id ?? "",
+    winMethod: fight.win_method ?? "",
+    round: fight.round != null ? String(fight.round) : "",
+    time: fight.time ?? "",
+  };
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getParticipant(
-  fight: FightRow,
-  slot: "fighter_1" | "fighter_2"
-) {
+function getParticipant(fight: FightRow, slot: "fighter_1" | "fighter_2") {
   return fight.fight_participants.find((p) => p.corner === slot)?.fighters ?? null;
 }
 
@@ -104,7 +151,9 @@ function FighterCell({ fighter }: { fighter: ReturnType<typeof getParticipant> }
     fighter.weight != null && `${fighter.weight}lbs`,
     fighter.reach != null && `${fighter.reach}" reach`,
     fighter.record,
-  ].filter(Boolean).join(" · ");
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div>
@@ -238,6 +287,12 @@ function FightStatusBadge({ status }: { status: string | null }) {
   );
 }
 
+// ─── Shared select styling ────────────────────────────────────────────────────
+
+const selectTriggerCls = "border-input bg-input text-foreground focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
+const selectContentCls = "border-border bg-card text-foreground";
+const selectItemCls = "focus:bg-neon/10 focus:text-neon";
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function FightsTable({
@@ -253,60 +308,134 @@ export function FightsTable({
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [formLoading, setFormLoading] = useState(false);
+  // ── Add dialog ──────────────────────────────────────────────────────────────
+  const [addOpen, setAddOpen] = useState(false);
+  const [addForm, setAddForm] = useState<AddFormState>(EMPTY_ADD_FORM);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addLoading, setAddLoading] = useState(false);
 
-  const [deleteTarget, setDeleteTarget] = useState<FightRow | null>(null);
-
-  function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
+  function setAddField<K extends keyof AddFormState>(k: K, v: AddFormState[K]) {
+    setAddForm((p) => ({ ...p, [k]: v }));
   }
 
   function openAdd() {
-    setForm(EMPTY_FORM);
-    setFormError(null);
-    setDialogOpen(true);
+    setAddForm(EMPTY_ADD_FORM);
+    setAddError(null);
+    setAddOpen(true);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleAddSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setFormError(null);
+    setAddError(null);
 
-    if (!form.fighter1Id || !form.fighter2Id) {
-      setFormError("Please select both fighters.");
+    if (!addForm.fighter1Id || !addForm.fighter2Id) {
+      setAddError("Please select both fighters.");
       return;
     }
-    if (form.fighter1Id === form.fighter2Id) {
-      setFormError("The same fighter cannot be selected twice.");
+    if (addForm.fighter1Id === addForm.fighter2Id) {
+      setAddError("The same fighter cannot be selected twice.");
       return;
     }
-    const boutOrder = parseInt(form.boutOrder, 10);
+    const boutOrder = parseInt(addForm.boutOrder, 10);
     if (!boutOrder || boutOrder < 1) {
-      setFormError("Bout order must be a positive number.");
+      setAddError("Bout order must be a positive number.");
       return;
     }
 
-    setFormLoading(true);
+    setAddLoading(true);
     const result = await addFight({
       eventId,
-      fighter1Id: form.fighter1Id,
-      fighter2Id: form.fighter2Id,
-      weightClass: form.weightClass.trim() || null,
-      category: form.category,
+      fighter1Id: addForm.fighter1Id,
+      fighter2Id: addForm.fighter2Id,
+      weightClass: addForm.weightClass.trim() || null,
+      category: addForm.category,
       boutOrder,
     });
-    setFormLoading(false);
+    setAddLoading(false);
 
-    if (result.error) {
-      setFormError(result.error);
+    if (result.error) { setAddError(result.error); return; }
+    setAddOpen(false);
+    startTransition(() => router.push(pathname));
+  }
+
+  // ── Edit dialog ─────────────────────────────────────────────────────────────
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<FightRow | null>(null);
+  const [editForm, setEditForm] = useState<EditFormState>(fightToEditForm({
+    id: "", bout_order: 1, weight_class: null, category: "main_card",
+    status: "scheduled", winner_id: null, win_method: null, round: null,
+    time: null, fight_participants: [],
+  }));
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+
+  function setEditField<K extends keyof EditFormState>(k: K, v: EditFormState[K]) {
+    setEditForm((p) => ({ ...p, [k]: v }));
+  }
+
+  function openEdit(fight: FightRow) {
+    setEditTarget(fight);
+    setEditForm(fightToEditForm(fight));
+    setEditError(null);
+    setEditOpen(true);
+  }
+
+  function handleEditStatusChange(newStatus: string) {
+    setEditForm((p) =>
+      newStatus !== "completed"
+        ? { ...p, status: newStatus, winnerId: "", winMethod: "", round: "", time: "" }
+        : { ...p, status: newStatus }
+    );
+  }
+
+  function handleEditWinnerChange(winnerId: string) {
+    setEditForm((p) =>
+      !winnerId
+        ? { ...p, winnerId: "", winMethod: "", round: "", time: "" }
+        : { ...p, winnerId }
+    );
+  }
+
+  async function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setEditError(null);
+
+    if (!editForm.fighter1Id || !editForm.fighter2Id) {
+      setEditError("Please select both fighters.");
+      return;
+    }
+    if (editForm.fighter1Id === editForm.fighter2Id) {
+      setEditError("The same fighter cannot be selected twice.");
+      return;
+    }
+    const boutOrder = parseInt(editForm.boutOrder, 10);
+    if (!boutOrder || boutOrder < 1) {
+      setEditError("Bout order must be a positive number.");
       return;
     }
 
-    setDialogOpen(false);
+    setEditLoading(true);
+    const result = await updateFight(editTarget!.id, eventId, {
+      fighter1Id: editForm.fighter1Id,
+      fighter2Id: editForm.fighter2Id,
+      weightClass: editForm.weightClass.trim() || null,
+      category: editForm.category,
+      boutOrder,
+      status: editForm.status,
+      winnerId: editForm.winnerId || null,
+      winMethod: editForm.winMethod || null,
+      round: editForm.round ? parseInt(editForm.round, 10) : null,
+      time: editForm.time.trim() || null,
+    });
+    setEditLoading(false);
+
+    if (result.error) { setEditError(result.error); return; }
+    setEditOpen(false);
     startTransition(() => router.push(pathname));
   }
+
+  // ── Delete dialog ───────────────────────────────────────────────────────────
+  const [deleteTarget, setDeleteTarget] = useState<FightRow | null>(null);
 
   async function handleDelete() {
     if (!deleteTarget) return;
@@ -314,6 +443,10 @@ export function FightsTable({
     setDeleteTarget(null);
     if (!result.error) startTransition(() => router.push(pathname));
   }
+
+  // ── Derived values for edit winner dropdown ─────────────────────────────────
+  const editF1 = fighters.find((f) => f.id === editForm.fighter1Id) ?? null;
+  const editF2 = fighters.find((f) => f.id === editForm.fighter2Id) ?? null;
 
   return (
     <>
@@ -337,7 +470,7 @@ export function FightsTable({
                 { label: "Weight Class", cls: "hidden md:table-cell" },
                 { label: "Category", cls: "hidden lg:table-cell" },
                 { label: "Status", cls: "" },
-                { label: "Actions", cls: "w-[60px]" },
+                { label: "Actions", cls: "w-[88px]" },
               ].map(({ label, cls }) => (
                 <TableHead
                   key={label}
@@ -395,13 +528,22 @@ export function FightsTable({
                       <FightStatusBadge status={fight.status} />
                     </TableCell>
                     <TableCell>
-                      <button
-                        onClick={() => setDeleteTarget(fight)}
-                        className="rounded p-3 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive active:bg-destructive/20"
-                        aria-label="Delete fight"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          onClick={() => openEdit(fight)}
+                          className="rounded p-2.5 text-muted-foreground transition-colors hover:bg-neon/10 hover:text-neon active:bg-neon/20"
+                          aria-label="Edit fight"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(fight)}
+                          className="rounded p-2.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive active:bg-destructive/20"
+                          aria-label="Delete fight"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -412,90 +554,74 @@ export function FightsTable({
       </div>
 
       {/* ── Add Fight Dialog ─────────────────────────────────────────────────── */}
-      <Dialog open={dialogOpen} onOpenChange={(o) => !formLoading && setDialogOpen(o)}>
+      <Dialog open={addOpen} onOpenChange={(o) => !addLoading && setAddOpen(o)}>
         <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-2rem)] flex-col overflow-y-auto border-border bg-card sm:w-full sm:max-w-lg">
           <DialogHeader className="shrink-0">
             <DialogTitle className="text-foreground">Add Fight</DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-1">
-            {/* Fighters — side by side on sm+ */}
+          <form onSubmit={handleAddSubmit} className="flex flex-col gap-4 pt-1">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>
-                  Fighter 1 <span className="text-neon">*</span>
-                </Label>
+                <Label>Fighter 1 <span className="text-neon">*</span></Label>
                 <FighterCombobox
                   fighters={fighters}
-                  value={form.fighter1Id}
-                  onChange={(id) => setField("fighter1Id", id)}
+                  value={addForm.fighter1Id}
+                  onChange={(id) => setAddField("fighter1Id", id)}
                   placeholder="Select fighter…"
-                  excludeId={form.fighter2Id}
+                  excludeId={addForm.fighter2Id}
                 />
               </div>
-
               <div className="space-y-1.5">
-                <Label>
-                  Fighter 2 <span className="text-neon">*</span>
-                </Label>
+                <Label>Fighter 2 <span className="text-neon">*</span></Label>
                 <FighterCombobox
                   fighters={fighters}
-                  value={form.fighter2Id}
-                  onChange={(id) => setField("fighter2Id", id)}
+                  value={addForm.fighter2Id}
+                  onChange={(id) => setAddField("fighter2Id", id)}
                   placeholder="Select fighter…"
-                  excludeId={form.fighter1Id}
+                  excludeId={addForm.fighter1Id}
                 />
               </div>
             </div>
 
-            {/* Weight class + Bout order — side by side on sm+ */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="f-weight">Weight Class</Label>
+                <Label htmlFor="a-weight">Weight Class</Label>
                 <Input
-                  id="f-weight"
+                  id="a-weight"
                   placeholder="Lightweight"
-                  value={form.weightClass}
-                  onChange={(e) => setField("weightClass", e.target.value)}
+                  value={addForm.weightClass}
+                  onChange={(e) => setAddField("weightClass", e.target.value)}
                 />
               </div>
-
               <div className="space-y-1.5">
-                <Label htmlFor="f-order">
+                <Label htmlFor="a-order">
                   Bout Order <span className="text-neon">*</span>
                 </Label>
                 <Input
-                  id="f-order"
+                  id="a-order"
                   type="number"
                   min={1}
                   placeholder="1"
-                  value={form.boutOrder}
-                  onChange={(e) => setField("boutOrder", e.target.value)}
+                  value={addForm.boutOrder}
+                  onChange={(e) => setAddField("boutOrder", e.target.value)}
                   required
                 />
               </div>
             </div>
 
-            {/* Category */}
             <div className="space-y-1.5">
-              <Label htmlFor="f-category">Category</Label>
+              <Label>Category</Label>
               <Select
-                value={form.category}
-                onValueChange={(v) => setField("category", v as FightCategory)}
+                value={addForm.category}
+                onValueChange={(v) => setAddField("category", v as FightCategory)}
               >
-                <SelectTrigger
-                  id="f-category"
-                  className="border-input bg-input text-foreground focus:ring-ring"
-                >
+                <SelectTrigger className={selectTriggerCls}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="border-border bg-card text-foreground">
+                <SelectContent className={selectContentCls}>
                   {CATEGORIES.map(({ value, label }) => (
-                    <SelectItem
-                      key={value}
-                      value={value}
-                      className="focus:bg-neon/10 focus:text-neon"
-                    >
+                    <SelectItem key={value} value={value} className={selectItemCls}>
                       {label}
                     </SelectItem>
                   ))}
@@ -503,27 +629,236 @@ export function FightsTable({
               </Select>
             </div>
 
-            {formError && (
-              <p className="text-sm text-destructive">{formError}</p>
-            )}
+            {addError && <p className="text-sm text-destructive">{addError}</p>}
 
             <DialogFooter className="shrink-0 flex-col-reverse gap-2 pt-2 sm:flex-row">
               <Button
                 type="button"
                 variant="ghost"
-                disabled={formLoading}
-                onClick={() => setDialogOpen(false)}
+                disabled={addLoading}
+                onClick={() => setAddOpen(false)}
                 className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                disabled={formLoading}
+                disabled={addLoading}
                 className="w-full gap-2 shadow-neon-sm sm:w-auto"
               >
-                {formLoading && <Loader2 size={14} className="animate-spin" />}
-                {formLoading ? "Adding…" : "Add Fight"}
+                {addLoading && <Loader2 size={14} className="animate-spin" />}
+                {addLoading ? "Adding…" : "Add Fight"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Fight Dialog ────────────────────────────────────────────────── */}
+      <Dialog open={editOpen} onOpenChange={(o) => !editLoading && setEditOpen(o)}>
+        <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-2rem)] flex-col overflow-y-auto border-border bg-card sm:w-full sm:max-w-lg">
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="text-foreground">Edit Fight</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleEditSubmit} className="flex flex-col gap-4 pt-1">
+            {/* Fighters */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Fighter 1 <span className="text-neon">*</span></Label>
+                <FighterCombobox
+                  fighters={fighters}
+                  value={editForm.fighter1Id}
+                  onChange={(id) => setEditField("fighter1Id", id)}
+                  placeholder="Select fighter…"
+                  excludeId={editForm.fighter2Id}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Fighter 2 <span className="text-neon">*</span></Label>
+                <FighterCombobox
+                  fighters={fighters}
+                  value={editForm.fighter2Id}
+                  onChange={(id) => setEditField("fighter2Id", id)}
+                  placeholder="Select fighter…"
+                  excludeId={editForm.fighter1Id}
+                />
+              </div>
+            </div>
+
+            {/* Weight class + bout order */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="e-weight">Weight Class</Label>
+                <Input
+                  id="e-weight"
+                  placeholder="Lightweight"
+                  value={editForm.weightClass}
+                  onChange={(e) => setEditField("weightClass", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="e-order">
+                  Bout Order <span className="text-neon">*</span>
+                </Label>
+                <Input
+                  id="e-order"
+                  type="number"
+                  min={1}
+                  value={editForm.boutOrder}
+                  onChange={(e) => setEditField("boutOrder", e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Category + status */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Category</Label>
+                <Select
+                  value={editForm.category}
+                  onValueChange={(v) => setEditField("category", v as FightCategory)}
+                >
+                  <SelectTrigger className={selectTriggerCls}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className={selectContentCls}>
+                    {CATEGORIES.map(({ value, label }) => (
+                      <SelectItem key={value} value={value} className={selectItemCls}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Status</Label>
+                <Select value={editForm.status} onValueChange={handleEditStatusChange}>
+                  <SelectTrigger className={selectTriggerCls}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className={selectContentCls}>
+                    {STATUSES.map(({ value, label }) => (
+                      <SelectItem key={value} value={value} className={selectItemCls}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* ── Result divider ─────────────────────────────────────────────── */}
+            <div className="flex items-center gap-3 py-1">
+              <div className="flex-1 border-t border-border" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Result
+              </span>
+              <div className="flex-1 border-t border-border" />
+            </div>
+
+            {/* Winner */}
+            <div className="space-y-1.5">
+              <Label>Winner</Label>
+              <Select
+                value={editForm.winnerId || "none"}
+                onValueChange={(v) => handleEditWinnerChange(v === "none" ? "" : v)}
+                disabled={editForm.status !== "completed"}
+              >
+                <SelectTrigger className={selectTriggerCls}>
+                  <SelectValue placeholder="— No winner —" />
+                </SelectTrigger>
+                <SelectContent className={selectContentCls}>
+                  <SelectItem value="none" className={selectItemCls}>
+                    — No winner —
+                  </SelectItem>
+                  {editF1 && (
+                    <SelectItem value={editF1.id} className={selectItemCls}>
+                      {editF1.name}
+                      <span className="ml-1.5 text-xs opacity-60">(Fighter 1)</span>
+                    </SelectItem>
+                  )}
+                  {editF2 && (
+                    <SelectItem value={editF2.id} className={selectItemCls}>
+                      {editF2.name}
+                      <span className="ml-1.5 text-xs opacity-60">(Fighter 2)</span>
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Win method */}
+            <div className="space-y-1.5">
+              <Label>Win Method</Label>
+              <Select
+                value={editForm.winMethod || "none"}
+                onValueChange={(v) => setEditField("winMethod", v === "none" ? "" : v)}
+                disabled={!editForm.winnerId}
+              >
+                <SelectTrigger className={selectTriggerCls}>
+                  <SelectValue placeholder="— Select method —" />
+                </SelectTrigger>
+                <SelectContent className={selectContentCls}>
+                  <SelectItem value="none" className={selectItemCls}>
+                    — Select method —
+                  </SelectItem>
+                  {WIN_METHODS.map(({ value, label }) => (
+                    <SelectItem key={value} value={value} className={selectItemCls}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Round + time */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="e-round">Round</Label>
+                <Input
+                  id="e-round"
+                  type="number"
+                  min={1}
+                  max={5}
+                  placeholder="1–5"
+                  value={editForm.round}
+                  onChange={(e) => setEditField("round", e.target.value)}
+                  disabled={!editForm.winnerId}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="e-time">Time</Label>
+                <Input
+                  id="e-time"
+                  placeholder="4:32"
+                  value={editForm.time}
+                  onChange={(e) => setEditField("time", e.target.value)}
+                  disabled={!editForm.winnerId}
+                />
+              </div>
+            </div>
+
+            {editError && <p className="text-sm text-destructive">{editError}</p>}
+
+            <DialogFooter className="shrink-0 flex-col-reverse gap-2 pt-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={editLoading}
+                onClick={() => setEditOpen(false)}
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={editLoading}
+                className="w-full gap-2 shadow-neon-sm sm:w-auto"
+              >
+                {editLoading && <Loader2 size={14} className="animate-spin" />}
+                {editLoading ? "Saving…" : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>

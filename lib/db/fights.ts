@@ -24,7 +24,24 @@ export type FightRow = {
   weight_class: string | null;
   category: string;
   status: string | null;
+  winner_id: string | null;
+  win_method: string | null;
+  round: number | null;
+  time: string | null;
   fight_participants: FightParticipant[];
+};
+
+export type UpdateFightPayload = {
+  fighter1Id: string;
+  fighter2Id: string;
+  weightClass: string | null;
+  category: FightCategory;
+  boutOrder: number;
+  status: string;
+  winnerId: string | null;
+  winMethod: string | null;
+  round: number | null;
+  time: string | null;
 };
 
 export type AddFightPayload = {
@@ -44,7 +61,7 @@ export async function getFightsForEvent(eventId: string): Promise<FightRow[]> {
   const { data, error } = await db
     .from("fights")
     .select(
-      `id, bout_order, weight_class, category, status,
+      `id, bout_order, weight_class, category, status, winner_id, win_method, round, time,
        fight_participants ( corner, fighters ( id, name, nickname, age, height, weight, reach, record ) )`
     )
     .eq("event_id", eventId)
@@ -86,6 +103,45 @@ export async function insertFight(
     await db.from("fights").delete().eq("id", fight.id);
     return { error: participantsError.message };
   }
+
+  return {};
+}
+
+export async function updateFight(
+  fightId: string,
+  payload: UpdateFightPayload
+): Promise<{ error?: string }> {
+  const db = createAdminClient();
+
+  // Update both corners
+  const { error: p1Err } = await db
+    .from("fight_participants")
+    .update({ fighter_id: payload.fighter1Id })
+    .eq("fight_id", fightId)
+    .eq("corner", "fighter_1");
+  if (p1Err) return { error: p1Err.message };
+
+  const { error: p2Err } = await db
+    .from("fight_participants")
+    .update({ fighter_id: payload.fighter2Id })
+    .eq("fight_id", fightId)
+    .eq("corner", "fighter_2");
+  if (p2Err) return { error: p2Err.message };
+
+  const { error } = await db
+    .from("fights")
+    .update({
+      weight_class: payload.weightClass,
+      category: payload.category,
+      bout_order: payload.boutOrder,
+      status: payload.status,
+      winner_id: payload.winnerId,
+      win_method: payload.winMethod,
+      round: payload.round,
+      time: payload.time,
+    })
+    .eq("id", fightId);
+  if (error) return { error: error.message };
 
   return {};
 }
