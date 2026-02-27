@@ -1,14 +1,16 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Shield, Trophy, Users } from "lucide-react";
+import { CalendarDays, Shield, Trophy, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getLeaguesForUser, getScoringRulesets } from "@/lib/db/leagues";
 import { getUserProfile } from "@/lib/db/users";
+import { getAllEventIdsByStatus } from "@/lib/db/events";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CreateLeagueDialog } from "./_components/create-league-dialog";
 import { JoinLeagueDialog } from "./_components/join-league-dialog";
 import { ProfileButton } from "./_components/profile-button";
+import { EventsBanners } from "@/components/events/EventsBanners";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -18,10 +20,11 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/login");
 
-  const [leagues, rulesets, profile] = await Promise.all([
+  const [leagues, rulesets, profile, { activeIds, pastIds }] = await Promise.all([
     getLeaguesForUser(user.id),
     getScoringRulesets(),
     getUserProfile(user.id),
+    getAllEventIdsByStatus(),
   ]);
 
   return (
@@ -140,6 +143,30 @@ export default async function DashboardPage() {
               </div>
             ))}
           </div>
+        )}
+        {/* ── Events ──────────────────────────────────────────────────────────── */}
+        {(activeIds.length > 0 || pastIds.length > 0) && (
+          <section className="space-y-6">
+            <div className="flex items-center gap-2">
+              <CalendarDays size={16} className="text-muted-foreground" />
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Events
+              </h2>
+            </div>
+
+            {activeIds.length > 0 && (
+              <EventsBanners eventIds={activeIds} />
+            )}
+
+            {pastIds.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Past Events
+                </p>
+                <EventsBanners eventIds={pastIds} />
+              </div>
+            )}
+          </section>
         )}
       </main>
     </div>

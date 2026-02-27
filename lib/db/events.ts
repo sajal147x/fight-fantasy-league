@@ -50,6 +50,26 @@ export async function getEventsByIds(ids: string[]): Promise<EventRow[]> {
   return data;
 }
 
+/** Returns all event ids split into active (upcoming/live) and past (completed), each ordered by date ascending. */
+export async function getAllEventIdsByStatus(): Promise<{
+  activeIds: string[];
+  pastIds: string[];
+}> {
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("events")
+    .select("id, status")
+    .order("date", { ascending: true });
+  if (error) throw new Error(error.message);
+  const activeIds: string[] = [];
+  const pastIds: string[] = [];
+  for (const row of data ?? []) {
+    if (row.status === "completed") pastIds.push(row.id);
+    else activeIds.push(row.id);
+  }
+  return { activeIds, pastIds };
+}
+
 /** Returns ids of all upcoming and live events ordered by date ascending. */
 export async function getUpcomingEventIds(): Promise<string[]> {
   const db = createAdminClient();
