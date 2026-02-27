@@ -25,7 +25,7 @@ export async function getEventsForLeague(
        events ( id, name, type, date, venue, location, status, image_url )`
     )
     .eq("league_id", leagueId)
-    .order("added_at", { ascending: false });
+    .order("events(date)", { ascending: true });
   if (error) throw new Error(error.message);
   return data as unknown as LeagueEventRow[];
 }

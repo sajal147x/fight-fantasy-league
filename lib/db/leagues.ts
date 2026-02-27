@@ -174,6 +174,89 @@ export async function getMembersForLeague(
   }));
 }
 
+// ─── Leaderboard ─────────────────────────────────────────────────────────────
+
+export type LeaderboardEntry = {
+  user_id: string;
+  user_name: string;
+  avatar_url: string | null;
+  total_points: number;
+  total_picks: number;
+  correct_picks: number;
+};
+
+/**
+ * Returns leaderboard stats for all members of a league, ordered by
+ * total_points descending. Aggregates the picks table in-process since
+ * PostgREST doesn't support GROUP BY directly.
+ */
+export async function getLeagueLeaderboard(
+  leagueId: string
+): Promise<LeaderboardEntry[]> {
+  const db = createAdminClient();
+
+  // Fetch all picks for this league (points_earned may be null until graded)
+  const { data: picks, error } = await db
+    .from("picks")
+    .select("user_id, points_earned")
+    .eq("league_id", leagueId);
+
+  if (error) throw new Error(error.message);
+  if (!picks || picks.length === 0) return [];
+
+  // Aggregate per user_id
+  const statsMap = new Map<
+    string,
+    { total_points: number; total_picks: number; correct_picks: number }
+  >();
+  for (const pick of picks) {
+    const s = statsMap.get(pick.user_id) ?? {
+      total_points: 0,
+      total_picks: 0,
+      correct_picks: 0,
+    };
+    s.total_picks += 1;
+    const pts = (pick as { user_id: string; points_earned: number | null })
+      .points_earned;
+    if (pts != null) {
+      s.total_points += pts;
+      if (pts > 0) s.correct_picks += 1;
+    }
+    statsMap.set(pick.user_id, s);
+  }
+
+  const userIds = Array.from(statsMap.keys());
+
+  // Fetch name and avatar_url from public.users, and emails from auth in parallel
+  const [profilesResult, authResult] = await Promise.all([
+    db.from("users").select("id, name, avatar_url").in("id", userIds),
+    db.auth.admin.listUsers({ perPage: 1000 }),
+  ]);
+
+  const profileMap = new Map(
+    (profilesResult.data ?? []).map((p) => [
+      p.id,
+      p as { id: string; name: string | null; avatar_url: string | null },
+    ])
+  );
+  const emailMap = new Map(
+    (authResult.data?.users ?? []).map((u) => [u.id, u.email ?? u.id])
+  );
+
+  return Array.from(statsMap.entries())
+    .map(([user_id, stats]) => {
+      const profile = profileMap.get(user_id);
+      return {
+        user_id,
+        user_name:
+          profile?.name ?? emailMap.get(user_id) ?? user_id,
+        avatar_url: profile?.avatar_url ?? null,
+        ...stats,
+      };
+    })
+    .sort((a, b) => b.total_points - a.total_points);
+}
+
 // ─── Mutations ────────────────────────────────────────────────────────────────
 
 /**

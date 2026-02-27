@@ -56,9 +56,10 @@ export async function getUpcomingEventIds(): Promise<string[]> {
   const { data, error } = await db
     .from("events")
     .select("id")
-    .in("status", ["upcoming", "live"])
+    .in("status", ["upcoming"])
     .order("date", { ascending: true });
   if (error) throw new Error(error.message);
+  console.log(data)
   return (data ?? []).map((r) => r.id);
 }
 

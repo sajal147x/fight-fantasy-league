@@ -1,11 +1,12 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { CalendarDays, ChevronLeft, Shield, Ticket, Users } from "lucide-react";
+import { CalendarDays, ChevronLeft, Shield, Ticket, Trophy, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import {
   getLeagueById,
   getMembershipForUser,
   getMembersForLeague,
+  getLeagueLeaderboard,
 } from "@/lib/db/leagues";
 import {
   getEventsForLeague,
@@ -18,6 +19,12 @@ import { AddEventDialog } from "./_components/add-event-dialog";
 import type { LeagueMemberRole } from "@/lib/db/leagues";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function ordinal(n: number) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
 
 function formatDate(iso: string | null) {
   if (!iso) return null;
@@ -74,12 +81,14 @@ export default async function LeagueDetailPage({
 
   const isOwner = membership.role === "owner";
 
-  // Fetch members list, league events, and (if owner) available events in parallel
-  const [members, leagueEvents, availableEvents] = await Promise.all([
-    getMembersForLeague(leagueId),
-    getEventsForLeague(leagueId),
-    isOwner ? getAvailableEvents(leagueId) : Promise.resolve([]),
-  ]);
+  // Fetch members list, league events, available events, and leaderboard in parallel
+  const [members, leagueEvents, availableEvents, leaderboard] =
+    await Promise.all([
+      getMembersForLeague(leagueId),
+      getEventsForLeague(leagueId),
+      isOwner ? getAvailableEvents(leagueId) : Promise.resolve([]),
+      getLeagueLeaderboard(leagueId),
+    ]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -134,52 +143,146 @@ export default async function LeagueDetailPage({
           </div>
         </div>
 
-        {/* ── Members ───────────────────────────────────────────────────────── */}
+
+        {/* ── Leaderboard ───────────────────────────────────────────────────── */}
         <section>
           <div className="mb-3 flex items-center gap-2">
-            <Users size={16} className="text-muted-foreground" />
+            <Trophy size={16} className="text-muted-foreground" />
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Members
-              <span className="ml-1.5 font-normal normal-case text-muted-foreground/60">
-                ({members.length})
-              </span>
+              Leaderboard
             </h2>
           </div>
 
-          <div className="rounded-lg border border-border bg-card">
-            {members.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-                No members yet.
+          {leaderboard.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border py-10 text-center">
+              <Trophy size={28} className="mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                No picks have been graded yet.
               </p>
-            ) : (
-              <ul className="divide-y divide-border">
-                {members.map((m) => (
-                  <li
-                    key={m.userId}
-                    className="flex items-center justify-between gap-3 px-4 py-3"
-                  >
-                    {/* Avatar initial */}
-                    <div className="flex items-center gap-3">
-                      <div
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-border bg-card">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/40">
+                    <th className="w-12 px-3 py-2.5 text-left font-semibold text-muted-foreground sm:px-4">
+                      #
+                    </th>
+                    <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground sm:px-4">
+                      Player
+                    </th>
+                    <th className="hidden px-3 py-2.5 text-right font-semibold text-muted-foreground sm:table-cell sm:px-4">
+                      Correct
+                    </th>
+                    <th className="hidden px-3 py-2.5 text-right font-semibold text-muted-foreground sm:table-cell sm:px-4">
+                      Picks
+                    </th>
+                    <th className="px-3 py-2.5 text-right font-semibold text-muted-foreground sm:px-4">
+                      Pts
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {leaderboard.map((entry, i) => {
+                    const isMe = entry.user_id === user.id;
+                    const displayName = entry.user_name;
+
+                    return (
+                      <tr
+                        key={entry.user_id}
                         className={cn(
-                          "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                          m.role === "owner"
-                            ? "bg-neon/10 text-neon ring-1 ring-neon/30"
-                            : "bg-muted text-muted-foreground"
+                          "transition-colors",
+                          isMe
+                            ? "bg-neon/10 hover:bg-neon/15"
+                            : "hover:bg-muted/30"
                         )}
                       >
-                        {m.email.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="truncate text-sm text-foreground">
-                        {m.email}
-                      </span>
-                    </div>
-                    <RoleBadge role={m.role} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+                        {/* Rank */}
+                        <td className="px-3 py-2.5 sm:px-4 sm:py-3">
+                          <span
+                            className={cn(
+                              "font-mono text-xs",
+                              i === 0
+                                ? "font-bold text-neon drop-shadow-neon-sm"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            {ordinal(i + 1)}
+                          </span>
+                        </td>
+
+                        {/* Player */}
+                        <td className="px-3 py-2.5 sm:px-4 sm:py-3">
+                          <div className="flex min-w-0 items-center gap-2">
+                            {entry.avatar_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={entry.avatar_url}
+                                alt={displayName}
+                                className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-border sm:h-7 sm:w-7"
+                              />
+                            ) : (
+                              <div
+                                className={cn(
+                                  "h-6 w-6 shrink-0 rounded-full sm:h-7 sm:w-7",
+                                  isMe
+                                    ? "bg-neon/20 ring-1 ring-neon/40"
+                                    : "bg-muted"
+                                )}
+                              />
+                            )}
+                            <div className="min-w-0">
+                              <span
+                                className={cn(
+                                  "block truncate font-medium leading-tight",
+                                  isMe ? "text-neon" : "text-foreground"
+                                )}
+                              >
+                                {displayName}
+                              </span>
+                              {/* Mobile-only stat summary under name */}
+                              <span className="block text-xs text-muted-foreground sm:hidden">
+                                {entry.correct_picks}/{entry.total_picks} correct
+                              </span>
+                            </div>
+                            {isMe && (
+                              <span className="ml-0.5 shrink-0 text-xs font-normal text-neon/60">
+                                (you)
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Correct picks — desktop only */}
+                        <td className="hidden px-3 py-2.5 text-right tabular-nums text-foreground sm:table-cell sm:px-4 sm:py-3">
+                          {entry.correct_picks}
+                        </td>
+
+                        {/* Total picks — desktop only */}
+                        <td className="hidden px-3 py-2.5 text-right tabular-nums text-muted-foreground sm:table-cell sm:px-4 sm:py-3">
+                          {entry.total_picks}
+                        </td>
+
+                        {/* Points */}
+                        <td className="px-3 py-2.5 text-right sm:px-4 sm:py-3">
+                          <span
+                            className={cn(
+                              "font-semibold tabular-nums",
+                              i === 0
+                                ? "text-neon drop-shadow-neon-sm"
+                                : "text-foreground"
+                            )}
+                          >
+                            {entry.total_points}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
         {/* ── Events ────────────────────────────────────────────────────────── */}
