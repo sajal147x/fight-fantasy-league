@@ -37,6 +37,31 @@ export async function getAllEvents(): Promise<EventRow[]> {
   return data;
 }
 
+/** Returns events matching the given ids, ordered by date ascending. */
+export async function getEventsByIds(ids: string[]): Promise<EventRow[]> {
+  if (ids.length === 0) return [];
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("events")
+    .select("id, name, type, date, venue, location, status, image_url")
+    .in("id", ids)
+    .order("date", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+/** Returns ids of all upcoming and live events ordered by date ascending. */
+export async function getUpcomingEventIds(): Promise<string[]> {
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("events")
+    .select("id")
+    .in("status", ["upcoming", "live"])
+    .order("date", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => r.id);
+}
+
 /** Returns a single event by id, or null if not found. */
 export async function getEvent(id: string): Promise<EventRow | null> {
   const db = createAdminClient();
