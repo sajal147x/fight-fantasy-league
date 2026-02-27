@@ -11,4 +11,4 @@ A NextJs Webapp to create and participate in fantasy combat sports events
 <img width="603" height="1311" alt="IMG_0630" src="https://github.com/user-attachments/assets/43c40e11-6335-4ec9-9581-17280ff921ca" />
 
 
-Project is deployed at https://thefantasyfightleague.com/dashboard
+Project is live at https://thefantasyfightleague.com/dashboard
