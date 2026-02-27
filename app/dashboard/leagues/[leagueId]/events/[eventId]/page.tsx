@@ -8,9 +8,11 @@ import {
   getEventFightsWithParticipants,
   getUserPicksForEvent,
 } from "@/lib/db/picks";
+import { getUserProfile } from "@/lib/db/users";
 import { StatusBadge } from "@/app/admin/events/_components/status-badge";
 import { FightsClient } from "./_components/fights-client";
 import { EventCountdown } from "@/components/events/EventCountdown";
+import { ProfileButton } from "@/app/dashboard/_components/profile-button";
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -28,10 +30,11 @@ export default async function EventFightsPage({
 
   if (!user) redirect("/login");
 
-  const [league, membership, event] = await Promise.all([
+  const [league, membership, event, profile] = await Promise.all([
     getLeagueById(leagueId),
     getMembershipForUser(leagueId, user.id),
     getEvent(eventId),
+    getUserProfile(user.id),
   ]);
 
   if (!league || !event) notFound();
@@ -55,19 +58,11 @@ export default async function EventFightsPage({
           <span className="text-lg font-extrabold tracking-tight text-primary drop-shadow-neon-sm">
             Fight Fantasy League
           </span>
-          <div className="flex items-center gap-4">
-            <span className="hidden text-xs text-muted-foreground sm:inline">
-              {user.email}
-            </span>
-            <form action="/auth/signout" method="post">
-              <button
-                type="submit"
-                className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
-              >
-                Sign out
-              </button>
-            </form>
-          </div>
+          <ProfileButton
+            name={profile?.name ?? null}
+            email={user.email ?? ""}
+            avatarUrl={profile?.avatar_url ?? null}
+          />
         </div>
       </header>
 

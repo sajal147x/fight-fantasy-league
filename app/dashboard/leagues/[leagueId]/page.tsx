@@ -11,10 +11,12 @@ import {
   getEventsForLeague,
   getAvailableEvents,
 } from "@/lib/db/league-events";
+import { getUserProfile } from "@/lib/db/users";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/app/admin/events/_components/status-badge";
 import { InviteCodeCopy } from "./_components/invite-code-copy";
 import { AddEventDialog } from "./_components/add-event-dialog";
+import { ProfileButton } from "@/app/dashboard/_components/profile-button";
 import type { LeagueMemberRole } from "@/lib/db/leagues";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -67,10 +69,11 @@ export default async function LeagueDetailPage({
 
   if (!user) redirect("/login");
 
-  // Fetch league and current user's membership in parallel
-  const [league, membership] = await Promise.all([
+  // Fetch league, membership, and profile in parallel
+  const [league, membership, profile] = await Promise.all([
     getLeagueById(leagueId),
     getMembershipForUser(leagueId, user.id),
+    getUserProfile(user.id),
   ]);
 
   if (!league) notFound();
@@ -80,13 +83,16 @@ export default async function LeagueDetailPage({
 
   const isOwner = membership.role === "owner";
 
-  // Fetch members list, league events, available events, and leaderboard in parallel
+  // Fetch league events, available events, and leaderboard in parallel
   const [ leagueEvents, availableEvents, leaderboard] =
     await Promise.all([
       getEventsForLeague(leagueId),
       isOwner ? getAvailableEvents(leagueId) : Promise.resolve([]),
       getLeagueLeaderboard(leagueId),
     ]);
+
+  const activeEvents = leagueEvents.filter(({ events: e }) => e.status !== "completed");
+  const pastEvents = leagueEvents.filter(({ events: e }) => e.status === "completed");
 
   return (
     <div className="min-h-screen bg-background">
@@ -96,19 +102,11 @@ export default async function LeagueDetailPage({
           <span className="text-lg font-extrabold tracking-tight text-primary drop-shadow-neon-sm">
            Fantasy Fight League
           </span>
-          <div className="flex items-center gap-4">
-            <span className="hidden text-xs text-muted-foreground sm:inline">
-              {user.email}
-            </span>
-            <form action="/auth/signout" method="post">
-              <button
-                type="submit"
-                className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
-              >
-                Sign out
-              </button>
-            </form>
-          </div>
+          <ProfileButton
+            name={profile?.name ?? null}
+            email={user.email ?? ""}
+            avatarUrl={profile?.avatar_url ?? null}
+          />
         </div>
       </header>
 
@@ -316,69 +314,112 @@ export default async function LeagueDetailPage({
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {leagueEvents.map(({ id, events: event }) => (
-
-                <Link
-                  key={id}
-                  href={`/dashboard/leagues/${leagueId}/events/${event.id}`}
-                  className="block overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-neon-sm"
-                >
-                  {/* Mobile: image full-bleed above text.
-                      sm+: flex row with thumbnail on the left. */}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 sm:p-4">
-                    {/* Image */}
-                    {event.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={event.image_url}
-                        alt={event.name}
-                        className="aspect-video w-full object-cover sm:aspect-auto sm:h-14 sm:w-20 sm:shrink-0 sm:rounded-md"
-                      />
-                    ) : (
-                      <div className="flex aspect-video w-full items-center justify-center bg-muted sm:aspect-auto sm:h-14 sm:w-20 sm:shrink-0 sm:rounded-md">
-                        <CalendarDays
-                          size={20}
-                          className="text-muted-foreground"
-                        />
-                      </div>
-                    )}
-
-                    {/* Info + status */}
-                    <div className="flex flex-1 items-center gap-3 p-3 sm:p-0">
-                      <div className="min-w-0 flex-1 space-y-0.5">
-                        <p className="font-semibold text-foreground">
-                          {event.name}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                          {event.date && (
-                            <span>{formatDate(event.date)}</span>
-                          )}
-                          {event.venue && (
-                            <>
-                              <span className="text-border">·</span>
-                              <span>{event.venue}</span>
-                            </>
-                          )}
-                          {event.location && (
-                            <>
-                              <span className="text-border">·</span>
-                              <span>{event.location}</span>
-                            </>
-                          )}
+            <div className="space-y-6">
+              {/* Active events */}
+              {activeEvents.length > 0 && (
+                <div className="space-y-3">
+                  {activeEvents.map(({ id, events: event }) => (
+                    <Link
+                      key={id}
+                      href={`/dashboard/leagues/${leagueId}/events/${event.id}`}
+                      className="block overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-neon-sm"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 sm:p-4">
+                        {event.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={event.image_url}
+                            alt={event.name}
+                            className="aspect-video w-full object-cover sm:aspect-auto sm:h-14 sm:w-20 sm:shrink-0 sm:rounded-md"
+                          />
+                        ) : (
+                          <div className="flex aspect-video w-full items-center justify-center bg-muted sm:aspect-auto sm:h-14 sm:w-20 sm:shrink-0 sm:rounded-md">
+                            <CalendarDays size={20} className="text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex flex-1 items-center gap-3 p-3 sm:p-0">
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <p className="font-semibold text-foreground">{event.name}</p>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                              {event.date && <span>{formatDate(event.date)}</span>}
+                              {event.venue && (
+                                <>
+                                  <span className="text-border">·</span>
+                                  <span>{event.venue}</span>
+                                </>
+                              )}
+                              {event.location && (
+                                <>
+                                  <span className="text-border">·</span>
+                                  <span>{event.location}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="shrink-0">
+                            <StatusBadge status={event.status} />
+                          </div>
                         </div>
                       </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
 
-                      <div className="shrink-0">
-                        <StatusBadge status={event.status} />
+              {/* Past events */}
+              {pastEvents.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Past Events
+                  </p>
+                  {pastEvents.map(({ id, events: event }) => (
+                    <Link
+                      key={id}
+                      href={`/dashboard/leagues/${leagueId}/events/${event.id}`}
+                      className="block overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-neon-sm"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 sm:p-4">
+                        {event.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={event.image_url}
+                            alt={event.name}
+                            className="aspect-video w-full object-cover sm:aspect-auto sm:h-14 sm:w-20 sm:shrink-0 sm:rounded-md"
+                          />
+                        ) : (
+                          <div className="flex aspect-video w-full items-center justify-center bg-muted sm:aspect-auto sm:h-14 sm:w-20 sm:shrink-0 sm:rounded-md">
+                            <CalendarDays size={20} className="text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex flex-1 items-center gap-3 p-3 sm:p-0">
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <p className="font-semibold text-foreground">{event.name}</p>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                              {event.date && <span>{formatDate(event.date)}</span>}
+                              {event.venue && (
+                                <>
+                                  <span className="text-border">·</span>
+                                  <span>{event.venue}</span>
+                                </>
+                              )}
+                              {event.location && (
+                                <>
+                                  <span className="text-border">·</span>
+                                  <span>{event.location}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="shrink-0">
+                            <StatusBadge status={event.status} />
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
-
           )}
         </section>
       </main>

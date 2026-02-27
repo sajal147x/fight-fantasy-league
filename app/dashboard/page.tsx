@@ -3,10 +3,12 @@ import Link from "next/link";
 import { Shield, Trophy, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getLeaguesForUser, getScoringRulesets } from "@/lib/db/leagues";
+import { getUserProfile } from "@/lib/db/users";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CreateLeagueDialog } from "./_components/create-league-dialog";
 import { JoinLeagueDialog } from "./_components/join-league-dialog";
+import { ProfileButton } from "./_components/profile-button";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -16,9 +18,10 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/login");
 
-  const [leagues, rulesets] = await Promise.all([
+  const [leagues, rulesets, profile] = await Promise.all([
     getLeaguesForUser(user.id),
     getScoringRulesets(),
+    getUserProfile(user.id),
   ]);
 
   return (
@@ -29,19 +32,11 @@ export default async function DashboardPage() {
           <span className="text-lg font-extrabold tracking-tight text-primary drop-shadow-neon-sm">
             Fantasy Fight League
           </span>
-          <div className="flex items-center gap-4">
-            <span className="hidden text-xs text-muted-foreground sm:inline">
-              {user.email}
-            </span>
-            <form action="/auth/signout" method="post">
-              <button
-                type="submit"
-                className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
-              >
-                Sign out
-              </button>
-            </form>
-          </div>
+          <ProfileButton
+            name={profile?.name ?? null}
+            email={user.email ?? ""}
+            avatarUrl={profile?.avatar_url ?? null}
+          />
         </div>
       </header>
 
