@@ -1,11 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { CalendarDays, ChevronLeft, Shield, Ticket, Trophy, Users } from "lucide-react";
+import { CalendarDays, ChevronLeft, Shield, Ticket, Trophy } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import {
   getLeagueById,
   getMembershipForUser,
-  getMembersForLeague,
   getLeagueLeaderboard,
 } from "@/lib/db/leagues";
 import {
@@ -82,9 +81,8 @@ export default async function LeagueDetailPage({
   const isOwner = membership.role === "owner";
 
   // Fetch members list, league events, available events, and leaderboard in parallel
-  const [members, leagueEvents, availableEvents, leaderboard] =
+  const [ leagueEvents, availableEvents, leaderboard] =
     await Promise.all([
-      getMembersForLeague(leagueId),
       getEventsForLeague(leagueId),
       isOwner ? getAvailableEvents(leagueId) : Promise.resolve([]),
       getLeagueLeaderboard(leagueId),
