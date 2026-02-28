@@ -206,12 +206,15 @@ function FighterBox({
         {fighter.name}
       </span>
 
-      {/* Result label — winner only */}
-      {resultLabel && (
-        <span className="text-center text-[10px] font-semibold tracking-wide text-green-500">
-          {resultLabel}
-        </span>
-      )}
+      {/* Result label — always reserve space so avatar rows stay aligned */}
+      <span
+        className={cn(
+          "text-center text-[10px] font-semibold tracking-wide",
+          resultLabel ? "text-green-500" : "select-none text-transparent"
+        )}
+      >
+        {resultLabel ?? "-"}
+      </span>
 
       {/* Odds */}
       {odds ? (
