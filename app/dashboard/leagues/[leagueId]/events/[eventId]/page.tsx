@@ -7,6 +7,7 @@ import { getEvent } from "@/lib/db/events";
 import {
   getEventFightsWithParticipants,
   getUserPicksForEvent,
+  getLeaguePicksForEvent,
 } from "@/lib/db/picks";
 import { getUserProfile } from "@/lib/db/users";
 import { StatusBadge } from "@/app/admin/events/_components/status-badge";
@@ -40,9 +41,10 @@ export default async function EventFightsPage({
   if (!league || !event) notFound();
   if (!membership) redirect("/dashboard");
 
-  const [fights, picks] = await Promise.all([
+  const [fights, picks, leaguePicks] = await Promise.all([
     getEventFightsWithParticipants(eventId),
     getUserPicksForEvent(user.id, leagueId, eventId),
+    getLeaguePicksForEvent(leagueId, eventId),
   ]);
 
   // Picks lock 1 hour before the event start time
@@ -130,6 +132,9 @@ export default async function EventFightsPage({
           leagueId={leagueId}
           initialIsLocked={isLocked}
           eventDate={event.date}
+          userAvatarUrl={profile?.avatar_url ?? null}
+          userName={profile?.name ?? user.email ?? null}
+          leaguePicks={leaguePicks}
         />
       </main>
     </div>

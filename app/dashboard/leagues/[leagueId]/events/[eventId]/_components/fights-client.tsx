@@ -1,21 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BarChart2, Check, ChevronDown, Loader2, Lock, Pencil, User } from "lucide-react";
+import { toast } from "sonner";
+import { Check, ChevronDown, Lock, Pencil, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { savePick } from "../actions";
-import type { FightWithDetails, FighterDetails, PickRow } from "@/lib/db/picks";
+import type { FightWithDetails, FighterDetails, PickRow, LeaguePickEntry } from "@/lib/db/picks";
 import { formatWinMethod } from "@/lib/utils/fights";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -53,6 +48,83 @@ function formatCategory(category: string) {
 
 const CATEGORY_ORDER = ["main_card", "prelim", "early_prelim"] as const;
 
+// ─── PickAvatar ───────────────────────────────────────────────────────────────
+
+function PickAvatar({
+  avatarUrl,
+  name,
+}: {
+  avatarUrl: string | null;
+  name: string | null;
+}) {
+  return (
+    <div className="h-8 w-8 overflow-hidden rounded-full  ">
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={avatarUrl}
+          alt="Your pick"
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-orange-500">
+          {name ? (
+            <span className="text-xs font-bold text-white">
+              {name.charAt(0).toUpperCase()}
+            </span>
+          ) : (
+            <User size={14} className="text-white" />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── AvatarStack ─────────────────────────────────────────────────────────────
+
+type AvatarEntry = { userId: string; name: string | null; avatarUrl: string | null };
+
+function AvatarStack({ avatars }: { avatars: AvatarEntry[] }) {
+  const shown = avatars.slice(0, 6);
+  const extra = avatars.length - shown.length;
+
+  return (
+    <div className="flex items-center">
+      {shown.map((avatar, i) => (
+        <div
+          key={avatar.userId}
+          title={avatar.name ?? undefined}
+          className={cn(
+            "h-7 w-7 overflow-hidden rounded-full ring-2 ring-card",
+            i > 0 && "-ml-2"
+          )}
+        >
+          {avatar.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={avatar.avatarUrl}
+              alt={avatar.name ?? ""}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-orange-500 text-[10px] font-bold text-white">
+              {avatar.name?.charAt(0).toUpperCase() ?? "?"}
+            </div>
+          )}
+        </div>
+      ))}
+      {extra > 0 && (
+        <div className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full bg-muted ring-2 ring-card">
+          <span className="text-[9px] font-bold text-muted-foreground">
+            +{extra}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── FighterBox ───────────────────────────────────────────────────────────────
 
 interface FighterBoxProps {
@@ -61,10 +133,12 @@ interface FighterBoxProps {
   isPicked: boolean;
   isEditing: boolean;
   isLocked: boolean;
-  isSaving: boolean;
   isWinner: boolean;
   isLoser: boolean;
   resultLabel: string | null;
+  userAvatarUrl: string | null;
+  userName: string | null;
+  pickerAvatars: AvatarEntry[];
   onClick: () => void;
 }
 
@@ -74,182 +148,87 @@ function FighterBox({
   isPicked,
   isEditing,
   isLocked,
-  isSaving,
   isWinner,
   isLoser,
   resultLabel,
+  userAvatarUrl,
+  userName,
+  pickerAvatars,
   onClick,
 }: FighterBoxProps) {
-  const [statsOpen, setStatsOpen] = useState(false);
-  const isClickable = isEditing && !isLocked && !isSaving;
+  const isClickable = isEditing && !isLocked;
 
   return (
-    <>
+    <div
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onClick={isClickable ? onClick : undefined}
+      onKeyDown={
+        isClickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") onClick();
+            }
+          : undefined
+      }
+      className={cn(
+        "flex flex-1 flex-col items-center gap-2 rounded-xl border bg-background p-3 transition-all duration-200",
+        "border-border",
+        isClickable && "cursor-pointer hover:border-neon/40 hover:bg-neon/5",
+        isLocked && "cursor-not-allowed opacity-60"
+      )}
+    >
+      {/* Fighter image */}
       <div
-        role={isClickable ? "button" : undefined}
-        tabIndex={isClickable ? 0 : undefined}
-        onClick={isClickable ? onClick : undefined}
-        onKeyDown={
-          isClickable
-            ? (e) => {
-                if (e.key === "Enter" || e.key === " ") onClick();
-              }
-            : undefined
-        }
         className={cn(
-          "flex flex-1 flex-col items-center gap-2 rounded-xl border bg-background p-3 transition-all duration-200",
-          isPicked ? "border-neon shadow-neon-sm" : "border-border",
-          isClickable && "cursor-pointer hover:border-neon/40 hover:bg-neon/5",
-          isLocked && "cursor-not-allowed opacity-60",
-          isSaving && "animate-pulse"
+          "relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 sm:h-20 sm:w-20",
+          isWinner
+            ? "border-green-500 shadow-[0_0_6px_#22c55e,0_0_16px_rgba(34,197,94,0.35)]"
+            : "border-transparent",
+          isLoser && "opacity-40 grayscale"
         )}
       >
-        {/* Fighter image */}
-        <div
-          className={cn(
-            "relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 sm:h-20 sm:w-20",
-            isWinner
-              ? "border-green-500 shadow-[0_0_6px_#22c55e,0_0_16px_rgba(34,197,94,0.35)]"
-              : "border-transparent",
-            isLoser && "opacity-40 grayscale"
-          )}
-        >
-          {fighter.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={fighter.image_url}
-              alt={fighter.name}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-muted">
-              <User size={28} className="text-muted-foreground" />
-            </div>
-          )}
-
-          {/* Saving overlay */}
-          {isSaving && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-background/70">
-              <Loader2 size={20} className="animate-spin text-neon" />
-            </div>
-          )}
-        </div>
-
-        {/* Name */}
-        <span className="text-center text-xs font-bold leading-tight text-foreground sm:text-sm">
-          {fighter.name}
-        </span>
-
-        {/* Result label — winner only */}
-        {resultLabel && (
-          <span className="text-center text-[10px] font-semibold tracking-wide text-green-500">
-            {resultLabel}
-          </span>
-        )}
-
-        {/* Odds */}
-        {odds ? (
-          <span className="text-xs font-semibold text-muted-foreground">
-            {odds}
-          </span>
+        {fighter.image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={fighter.image_url}
+            alt={fighter.name}
+            className="h-full w-full object-cover"
+          />
         ) : (
-          <span className="select-none text-xs text-transparent">-</span>
+          <div className="flex h-full w-full items-center justify-center bg-muted">
+            <User size={28} className="text-muted-foreground" />
+          </div>
         )}
-
-        {/* Stats button — always clickable, stops pick propagation */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setStatsOpen(true);
-          }}
-          className="mt-0.5 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/80 px-3 py-1 text-[11px] font-semibold text-muted-foreground shadow-sm transition-all duration-150 hover:border-neon/60 hover:bg-neon/10 hover:text-neon hover:shadow-neon-sm active:scale-95"
-        >
-          <BarChart2 size={11} />
-          Stats
-        </button>
       </div>
 
-      {/* Fighter stats dialog */}
-      <Dialog open={statsOpen} onOpenChange={setStatsOpen}>
-        <DialogContent className="max-w-xs border-border bg-card sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold text-foreground">
-              Fighter Stats
-            </DialogTitle>
-          </DialogHeader>
+      {/* Name */}
+      <span className="text-center text-xs font-bold leading-tight text-foreground sm:text-sm">
+        {fighter.name}
+      </span>
 
-          <div className="flex flex-col items-center gap-4 py-2">
-            {/* Photo */}
-            <div className="h-28 w-28 overflow-hidden rounded-full border-2 border-neon shadow-neon-sm">
-              {fighter.image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={fighter.image_url}
-                  alt={fighter.name}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-muted">
-                  <User size={44} className="text-muted-foreground" />
-                </div>
-              )}
-            </div>
+      {/* Result label — winner only */}
+      {resultLabel && (
+        <span className="text-center text-[10px] font-semibold tracking-wide text-green-500">
+          {resultLabel}
+        </span>
+      )}
 
-            {/* Name */}
-            <div className="space-y-1 text-center">
-              <p className="text-xl font-extrabold tracking-tight text-foreground">
-                {fighter.name}
-              </p>
-              {fighter.nickname && (
-                <p className="text-sm italic text-neon/80">
-                  &ldquo;{fighter.nickname}&rdquo;
-                </p>
-              )}
-            </div>
+      {/* Odds */}
+      {odds ? (
+        <span className="text-xs font-semibold text-muted-foreground">
+          {odds}
+        </span>
+      ) : (
+        <span className="select-none text-xs text-transparent">-</span>
+      )}
 
-            {/* Details rows */}
-            <div className="w-full divide-y divide-border rounded-lg border border-border">
-              {[
-                { label: "Nationality", value: fighter.nationality },
-                {
-                  label: "Age",
-                  value: fighter.age != null ? `${fighter.age}` : null,
-                },
-                {
-                  label: "Height",
-                  value:
-                    fighter.height != null ? `${fighter.height} ft` : null,
-                },
-                {
-                  label: "Weight",
-                  value:
-                    fighter.weight != null ? `${fighter.weight} lbs` : null,
-                },
-                {
-                  label: "Reach",
-                  value:
-                    fighter.reach != null ? `${fighter.reach}"` : null,
-                },
-                { label: "Record", value: fighter.record },
-              ].map(({ label, value }) => (
-                <div
-                  key={label}
-                  className="flex items-center justify-between px-4 py-2.5"
-                >
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {label}
-                  </span>
-                  <span className="text-sm font-medium text-foreground">
-                    {value ?? "—"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+      {/* Pick indicator — reserved slot so both cards stay the same height */}
+      <div className="flex h-8 items-center justify-center">
+        {isLocked
+          ? pickerAvatars.length > 0 && <AvatarStack avatars={pickerAvatars} />
+          : isPicked && <PickAvatar avatarUrl={userAvatarUrl} name={userName} />}
+      </div>
+    </div>
   );
 }
 
@@ -261,6 +240,9 @@ interface FightsClientProps {
   leagueId: string;
   initialIsLocked: boolean;
   eventDate: string | null;
+  userAvatarUrl: string | null;
+  userName: string | null;
+  leaguePicks: LeaguePickEntry[];
 }
 
 export function FightsClient({
@@ -269,6 +251,9 @@ export function FightsClient({
   leagueId,
   initialIsLocked,
   eventDate,
+  userAvatarUrl,
+  userName,
+  leaguePicks,
 }: FightsClientProps) {
   const [isLocked, setIsLocked] = useState(initialIsLocked);
   const [picks, setPicks] = useState<PicksMap>(() => {
@@ -278,8 +263,6 @@ export function FightsClient({
     }
     return map;
   });
-  // savingKey = "<fightId>:<fighterId>" while a save is in flight
-  const [savingKey, setSavingKey] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     main_card: false,
     prelim: false,
@@ -300,18 +283,32 @@ export function FightsClient({
     return () => clearInterval(interval);
   }, [eventDate]);
 
-  async function handlePick(fightId: string, fighterId: string) {
-    if (isLocked || savingKey !== null) return;
-    const key = `${fightId}:${fighterId}`;
+  function handlePick(fightId: string, fighterId: string) {
+    if (isLocked) return;
     const prevPicks = { ...picks };
-    // Optimistic update — immediately reflect the pick in UI
+    // Optimistic: update state instantly
     setPicks((prev) => ({ ...prev, [fightId]: fighterId }));
-    setSavingKey(key);
-    const result = await savePick(leagueId, fightId, fighterId);
-    if (result.error) {
-      setPicks(prevPicks);
-    }
-    setSavingKey(null);
+    // Fire server action in background
+    savePick(leagueId, fightId, fighterId)
+      .then((result) => {
+        if (result?.error) {
+          setPicks(prevPicks);
+          toast.error("Failed to save pick. Please try again.");
+        }
+      })
+      .catch(() => {
+        setPicks(prevPicks);
+        toast.error("Failed to save pick. Please try again.");
+      });
+  }
+
+  // Build map: "fightId:fighterId" → list of pickers (for completed fights)
+  const pickersMap = new Map<string, AvatarEntry[]>();
+  for (const p of leaguePicks) {
+    const key = `${p.fight_id}:${p.picked_fighter_id}`;
+    const list = pickersMap.get(key) ?? [];
+    list.push({ userId: p.user_id, name: p.user_name, avatarUrl: p.user_avatar_url });
+    pickersMap.set(key, list);
   }
 
   // Group fights by category, maintaining server sort order (bout_order desc)
@@ -359,7 +356,6 @@ export function FightsClient({
             const catFights = groups[cat] ?? [];
             if (catFights.length === 0) return null;
             const isOpen = openSections[cat] ?? false;
-
             const isEditingCat = editingSections[cat] ?? false;
 
             return (
@@ -371,8 +367,6 @@ export function FightsClient({
                 }
               >
                 {/* ── Section header ───────────────────────────────────── */}
-                {/* Card-style row: trigger takes the left, edit button    */}
-                {/* is pinned to the right behind a vertical separator.    */}
                 <div className="flex overflow-hidden rounded-xl border border-border bg-card transition-colors">
                   <CollapsibleTrigger className="group flex flex-1 cursor-pointer items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50 min-w-0">
                     <ChevronDown
@@ -400,7 +394,7 @@ export function FightsClient({
                     </h2>
                   </CollapsibleTrigger>
 
-                  {/* Edit / Done toggle — separated by a vertical divider  */}
+                  {/* Edit / Done toggle */}
                   {!isLocked && (
                     <>
                       <div className="w-px self-stretch bg-border" />
@@ -418,20 +412,20 @@ export function FightsClient({
                             ? "bg-neon/10 text-neon"
                             : "text-muted-foreground hover:bg-muted/50 hover:text-neon"
                         )}
-                    >
-                      {isEditingCat ? (
-                        <>
-                          <Check size={10} />
-                          Done
-                        </>
-                      ) : (
-                        <>
-                          <Pencil size={10} />
-                          Edit
-                        </>
-                      )}
-                    </button>
-                  </>
+                      >
+                        {isEditingCat ? (
+                          <>
+                            <Check size={10} />
+                            Done
+                          </>
+                        ) : (
+                          <>
+                            <Pencil size={10} />
+                            Edit
+                          </>
+                        )}
+                      </button>
+                    </>
                   )}
                 </div>
 
@@ -452,8 +446,10 @@ export function FightsClient({
                     const pickedFighterId = picks[fight.id];
                     const hasResult = fight.winner_id !== null;
                     const resultLabel = buildResultLabel(fight);
-                    const f1IsWinner = hasResult && f1 != null && f1.fighters.id === fight.winner_id;
-                    const f2IsWinner = hasResult && f2 != null && f2.fighters.id === fight.winner_id;
+                    const f1IsWinner =
+                      hasResult && f1 != null && f1.fighters.id === fight.winner_id;
+                    const f2IsWinner =
+                      hasResult && f2 != null && f2.fighters.id === fight.winner_id;
 
                     return (
                       <div
@@ -470,15 +466,13 @@ export function FightsClient({
                               isPicked={pickedFighterId === f1.fighters.id}
                               isEditing={isEditingCat}
                               isLocked={isLocked}
-                              isSaving={
-                                savingKey === `${fight.id}:${f1.fighters.id}`
-                              }
                               isWinner={f1IsWinner}
                               isLoser={hasResult && !f1IsWinner}
                               resultLabel={f1IsWinner ? resultLabel : null}
-                              onClick={() =>
-                                handlePick(fight.id, f1.fighters.id)
-                              }
+                              userAvatarUrl={userAvatarUrl}
+                              userName={userName}
+                              pickerAvatars={pickersMap.get(`${fight.id}:${f1.fighters.id}`) ?? []}
+                              onClick={() => handlePick(fight.id, f1.fighters.id)}
                             />
                           ) : (
                             <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border py-8 text-xs text-muted-foreground">
@@ -501,15 +495,13 @@ export function FightsClient({
                               isPicked={pickedFighterId === f2.fighters.id}
                               isEditing={isEditingCat}
                               isLocked={isLocked}
-                              isSaving={
-                                savingKey === `${fight.id}:${f2.fighters.id}`
-                              }
                               isWinner={f2IsWinner}
                               isLoser={hasResult && !f2IsWinner}
                               resultLabel={f2IsWinner ? resultLabel : null}
-                              onClick={() =>
-                                handlePick(fight.id, f2.fighters.id)
-                              }
+                              userAvatarUrl={userAvatarUrl}
+                              userName={userName}
+                              pickerAvatars={pickersMap.get(`${fight.id}:${f2.fighters.id}`) ?? []}
+                              onClick={() => handlePick(fight.id, f2.fighters.id)}
                             />
                           ) : (
                             <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border py-8 text-xs text-muted-foreground">

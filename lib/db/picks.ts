@@ -104,6 +104,61 @@ export async function getUserPicksForEvent(
   return (data ?? []) as PickRow[];
 }
 
+export type LeaguePickEntry = {
+  fight_id: string;
+  picked_fighter_id: string;
+  user_id: string;
+  user_name: string | null;
+  user_avatar_url: string | null;
+};
+
+/**
+ * Returns all picks for every member of a league for a given event,
+ * joined with basic user profile data (name, avatar_url).
+ */
+export async function getLeaguePicksForEvent(
+  leagueId: string,
+  eventId: string
+): Promise<LeaguePickEntry[]> {
+  const db = createAdminClient();
+
+  const { data: fightData, error: fightError } = await db
+    .from("fights")
+    .select("id")
+    .eq("event_id", eventId);
+  if (fightError) throw new Error(fightError.message);
+  const fightIds = (fightData ?? []).map((f) => f.id);
+  if (fightIds.length === 0) return [];
+
+  const { data: picks, error: picksError } = await db
+    .from("picks")
+    .select("fight_id, picked_fighter_id, user_id")
+    .eq("league_id", leagueId)
+    .in("fight_id", fightIds);
+  if (picksError) throw new Error(picksError.message);
+  if (!picks || picks.length === 0) return [];
+
+  const userIds = [...new Set(picks.map((p) => p.user_id))];
+  const { data: profiles, error: profilesError } = await db
+    .from("users")
+    .select("id, name, avatar_url")
+    .in("id", userIds);
+  if (profilesError) throw new Error(profilesError.message);
+
+  const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+  return picks.map((pick) => {
+    const profile = profileMap.get(pick.user_id);
+    return {
+      fight_id: pick.fight_id,
+      picked_fighter_id: pick.picked_fighter_id,
+      user_id: pick.user_id,
+      user_name: profile?.name ?? null,
+      user_avatar_url: profile?.avatar_url ?? null,
+    };
+  });
+}
+
 // ─── Mutations ────────────────────────────────────────────────────────────────
 
 /**
