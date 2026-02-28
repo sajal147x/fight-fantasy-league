@@ -138,7 +138,7 @@ export async function getLeaguePicksForEvent(
   if (picksError) throw new Error(picksError.message);
   if (!picks || picks.length === 0) return [];
 
-  const userIds = [...new Set(picks.map((p) => p.user_id))];
+  const userIds = Array.from(new Set(picks.map((p) => p.user_id)));
   const { data: profiles, error: profilesError } = await db
     .from("users")
     .select("id, name, avatar_url")
