@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/collapsible";
 import type { FightWithDetails, FighterDetails, PickRow, LeaguePickEntry } from "@/lib/db/picks";
 import { formatWinMethod } from "@/lib/utils/fights";
+import { FighterStatsDialog } from "@/components/fights/FighterStatsDialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -279,6 +280,12 @@ export function FightsClient({
   const [editingSections, setEditingSections] = useState<
     Record<string, boolean>
   >({});
+  const [selectedFight, setSelectedFight] = useState<{
+    f1Id: string;
+    f2Id: string;
+    f1ParticipantId: string;
+    f2ParticipantId: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!eventDate) return;
@@ -489,10 +496,26 @@ export function FightsClient({
                           )}
 
                           {/* VS divider */}
-                          <div className="flex shrink-0 flex-col items-center justify-center px-1">
+                          <div className="flex shrink-0 flex-col items-center justify-center gap-2 px-1">
                             <span className="text-base font-black tracking-widest text-muted-foreground/60 sm:text-xl">
                               VS
                             </span>
+                            {f1 && f2 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedFight({
+                                    f1Id: f1.fighters.id,
+                                    f2Id: f2.fighters.id,
+                                    f1ParticipantId: f1.id,
+                                    f2ParticipantId: f2.id,
+                                  })
+                                }
+                                className="rounded bg-neon/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-neon ring-1 ring-neon/40 transition-colors hover:bg-neon/25"
+                              >
+                                Stats
+                              </button>
+                            )}
                           </div>
 
                           {/* Fighter 2 */}
@@ -547,6 +570,17 @@ export function FightsClient({
             );
           })}
         </div>
+      )}
+
+      {selectedFight && (
+        <FighterStatsDialog
+          fighter1Id={selectedFight.f1Id}
+          fighter2Id={selectedFight.f2Id}
+          fighter1ParticipantId={selectedFight.f1ParticipantId}
+          fighter2ParticipantId={selectedFight.f2ParticipantId}
+          open={!!selectedFight}
+          onClose={() => setSelectedFight(null)}
+        />
       )}
     </div>
   );

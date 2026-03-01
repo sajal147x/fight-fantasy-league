@@ -16,6 +16,7 @@ export type FighterDetails = {
 };
 
 export type FightParticipantDetails = {
+  id: string;
   corner: "fighter_1" | "fighter_2";
   odds: string | null;
   fighters: FighterDetails;
@@ -62,7 +63,7 @@ export async function getEventFightsWithParticipants(
     .from("fights")
     .select(
       `id, bout_order, weight_class, category, status, winner_id, win_method, round, time,
-       fight_participants ( corner, odds, fighters ( id, name, nickname, image_url, nationality, age, height, weight, reach, record ) )`
+       fight_participants ( id, corner, odds, fighters ( id, name, nickname, image_url, nationality, age, height, weight, reach, record ) )`
     )
     .eq("event_id", eventId)
     .order("bout_order", { ascending: true });
