@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { upsertPick } from "@/lib/db/picks";
 
 export async function savePick(
-  leagueId: string,
   fightId: string,
   pickedFighterId: string
 ): Promise<{ error?: string }> {
@@ -17,7 +16,6 @@ export async function savePick(
 
   return upsertPick({
     user_id: user.id,
-    league_id: leagueId,
     fight_id: fightId,
     picked_fighter_id: pickedFighterId,
   });

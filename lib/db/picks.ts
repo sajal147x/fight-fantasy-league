@@ -37,14 +37,12 @@ export type FightWithDetails = {
 export type PickRow = {
   id: string;
   user_id: string;
-  league_id: string;
   fight_id: string;
   picked_fighter_id: string;
 };
 
 export type UpsertPickPayload = {
   user_id: string;
-  league_id: string;
   fight_id: string;
   picked_fighter_id: string;
 };
@@ -73,12 +71,11 @@ export async function getEventFightsWithParticipants(
 }
 
 /**
- * Returns all picks the current user has made for fights in this event,
- * filtered by league_id so picks are scoped per-league.
+ * Returns all picks the current user has made for fights in this event.
+ * Picks are now scoped to (user_id, fight_id) only — no league_id filter.
  */
 export async function getUserPicksForEvent(
   userId: string,
-  leagueId: string,
   eventId: string
 ): Promise<PickRow[]> {
   const db = createAdminClient();
@@ -95,9 +92,8 @@ export async function getUserPicksForEvent(
 
   const { data, error } = await db
     .from("picks")
-    .select("id, user_id, league_id, fight_id, picked_fighter_id")
+    .select("id, user_id, fight_id, picked_fighter_id")
     .eq("user_id", userId)
-    .eq("league_id", leagueId)
     .in("fight_id", fightIds);
 
   if (error) throw new Error(error.message);
@@ -115,6 +111,7 @@ export type LeaguePickEntry = {
 /**
  * Returns all picks for every member of a league for a given event,
  * joined with basic user profile data (name, avatar_url).
+ * Scopes to league members via league_members join — no league_id on picks.
  */
 export async function getLeaguePicksForEvent(
   leagueId: string,
@@ -122,18 +119,23 @@ export async function getLeaguePicksForEvent(
 ): Promise<LeaguePickEntry[]> {
   const db = createAdminClient();
 
-  const { data: fightData, error: fightError } = await db
-    .from("fights")
-    .select("id")
-    .eq("event_id", eventId);
+  const [{ data: fightData, error: fightError }, { data: memberData, error: memberError }] =
+    await Promise.all([
+      db.from("fights").select("id").eq("event_id", eventId),
+      db.from("league_members").select("user_id").eq("league_id", leagueId),
+    ]);
+
   if (fightError) throw new Error(fightError.message);
+  if (memberError) throw new Error(memberError.message);
+
   const fightIds = (fightData ?? []).map((f) => f.id);
-  if (fightIds.length === 0) return [];
+  const memberIds = (memberData ?? []).map((m) => m.user_id);
+  if (fightIds.length === 0 || memberIds.length === 0) return [];
 
   const { data: picks, error: picksError } = await db
     .from("picks")
     .select("fight_id, picked_fighter_id, user_id")
-    .eq("league_id", leagueId)
+    .in("user_id", memberIds)
     .in("fight_id", fightIds);
   if (picksError) throw new Error(picksError.message);
   if (!picks || picks.length === 0) return [];
@@ -162,8 +164,8 @@ export async function getLeaguePicksForEvent(
 // ─── Mutations ────────────────────────────────────────────────────────────────
 
 /**
- * Inserts or updates a pick for a given user/league/fight combination.
- * Requires a unique constraint on (user_id, league_id, fight_id) in the picks table.
+ * Inserts or updates a pick for a given user/fight combination.
+ * Unique constraint on (user_id, fight_id) in the picks table.
  */
 export async function upsertPick(
   payload: UpsertPickPayload
@@ -172,11 +174,10 @@ export async function upsertPick(
   const { error } = await db.from("picks").upsert(
     {
       user_id: payload.user_id,
-      league_id: payload.league_id,
       fight_id: payload.fight_id,
       picked_fighter_id: payload.picked_fighter_id,
     },
-    { onConflict: "user_id,league_id,fight_id" }
+    { onConflict: "user_id,fight_id" }
   );
   if (error) return { error: error.message };
   return {};

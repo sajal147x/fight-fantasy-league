@@ -240,7 +240,6 @@ function FighterBox({
 interface FightsClientProps {
   fights: FightWithDetails[];
   initialPicks: PickRow[];
-  leagueId: string;
   initialIsLocked: boolean;
   eventDate: string | null;
   userAvatarUrl: string | null;
@@ -251,7 +250,6 @@ interface FightsClientProps {
 export function FightsClient({
   fights,
   initialPicks,
-  leagueId,
   initialIsLocked,
   eventDate,
   userAvatarUrl,
@@ -292,7 +290,7 @@ export function FightsClient({
     // Optimistic: update state instantly
     setPicks((prev) => ({ ...prev, [fightId]: fighterId }));
     // Fire server action in background
-    savePick(leagueId, fightId, fighterId)
+    savePick(fightId, fighterId)
       .then((result) => {
         if (result?.error) {
           setPicks(prevPicks);

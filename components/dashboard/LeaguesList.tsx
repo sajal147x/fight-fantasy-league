@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Shield, Trophy, Users } from "lucide-react";
+import { Globe, Shield, Trophy, Users } from "lucide-react";
 import { getLeaguesForUser, getScoringRulesets } from "@/lib/db/leagues";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,10 +48,17 @@ export function LeaguesSkeleton() {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export async function LeaguesList({ userId }: { userId: string }) {
-  const [leagues, rulesets] = await Promise.all([
+  const [leaguesRaw, rulesets] = await Promise.all([
     getLeaguesForUser(userId),
     getScoringRulesets(),
   ]);
+
+  // Global League always appears first
+  const leagues = [...leaguesRaw].sort((a, b) => {
+    if (a.invite_code === "GLOBAL") return -1;
+    if (b.invite_code === "GLOBAL") return 1;
+    return 0;
+  });
 
   return (
     <div className="space-y-4">
@@ -83,34 +90,53 @@ export async function LeaguesList({ userId }: { userId: string }) {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {leagues.map((league) => (
+          {leagues.map((league) => {
+            const isGlobal = league.invite_code === "GLOBAL";
+            return (
             <div
               key={league.id}
               className={cn(
                 "relative flex flex-col rounded-lg border bg-card p-5 transition-shadow hover:shadow-neon-sm",
-                league.role === "owner" ? "border-neon/40" : "border-border"
+                isGlobal
+                  ? "border-blue-500/40"
+                  : league.role === "owner"
+                  ? "border-neon/40"
+                  : "border-border"
               )}
             >
-              {league.role === "owner" && (
+              {isGlobal && (
+                <div className="absolute inset-x-0 top-0 h-0.5 rounded-t-lg bg-blue-500/70" />
+              )}
+              {!isGlobal && league.role === "owner" && (
                 <div className="absolute inset-x-0 top-0 h-0.5 rounded-t-lg bg-neon/70" />
               )}
 
-              <h2 className="line-clamp-2 text-base font-semibold leading-snug text-foreground">
-                {league.name}
-              </h2>
+              <div className="flex items-start justify-between gap-2">
+                <h2 className="line-clamp-2 text-base font-semibold leading-snug text-foreground">
+                  {league.name}
+                </h2>
+                {isGlobal && (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-400 ring-1 ring-blue-500/30">
+                    <Globe size={9} />
+                    Global
+                  </span>
+                )}
+              </div>
 
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ring-1",
-                    league.role === "owner"
-                      ? "bg-neon/10 text-neon ring-neon/30"
-                      : "bg-muted text-muted-foreground ring-border"
-                  )}
-                >
-                  {league.role === "owner" && <Shield size={10} />}
-                  {league.role.charAt(0).toUpperCase() + league.role.slice(1)}
-                </span>
+                {!isGlobal && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ring-1",
+                      league.role === "owner"
+                        ? "bg-neon/10 text-neon ring-neon/30"
+                        : "bg-muted text-muted-foreground ring-border"
+                    )}
+                  >
+                    {league.role === "owner" && <Shield size={10} />}
+                    {league.role.charAt(0).toUpperCase() + league.role.slice(1)}
+                  </span>
+                )}
                 <span className="flex items-center gap-1">
                   <Users size={12} />
                   {league.member_count}{" "}
@@ -131,7 +157,12 @@ export async function LeaguesList({ userId }: { userId: string }) {
                 <Button
                   asChild
                   variant="outline"
-                  className="w-full border-border bg-transparent text-foreground hover:border-neon/50 hover:bg-neon/5 hover:text-neon"
+                  className={cn(
+                    "w-full bg-transparent text-foreground",
+                    isGlobal
+                      ? "border-blue-500/30 hover:border-blue-500/60 hover:bg-blue-500/5 hover:text-blue-400"
+                      : "border-border hover:border-neon/50 hover:bg-neon/5 hover:text-neon"
+                  )}
                 >
                   <Link href={`/dashboard/leagues/${league.id}`}>
                     View League
@@ -139,7 +170,8 @@ export async function LeaguesList({ userId }: { userId: string }) {
                 </Button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

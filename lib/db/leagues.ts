@@ -189,17 +189,28 @@ export type LeaderboardEntry = {
  * Returns leaderboard stats for all members of a league, ordered by
  * total_points descending. Aggregates the picks table in-process since
  * PostgREST doesn't support GROUP BY directly.
+ * Scopes to league members via league_members — no league_id on picks.
  */
 export async function getLeagueLeaderboard(
   leagueId: string
 ): Promise<LeaderboardEntry[]> {
   const db = createAdminClient();
 
-  // Fetch all picks for this league (points_earned may be null until graded)
+  // Get the user_ids of everyone in this league
+  const { data: memberData, error: memberError } = await db
+    .from("league_members")
+    .select("user_id")
+    .eq("league_id", leagueId);
+  if (memberError) throw new Error(memberError.message);
+
+  const memberIds = (memberData ?? []).map((m) => m.user_id);
+  if (memberIds.length === 0) return [];
+
+  // Fetch all picks for these members (points_earned may be null until graded)
   const { data: picks, error } = await db
     .from("picks")
     .select("user_id, points_earned")
-    .eq("league_id", leagueId);
+    .in("user_id", memberIds);
 
   if (error) throw new Error(error.message);
   if (!picks || picks.length === 0) return [];

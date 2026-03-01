@@ -43,7 +43,7 @@ export default async function EventFightsPage({
 
   const [fights, picks, leaguePicks] = await Promise.all([
     getEventFightsWithParticipants(eventId),
-    getUserPicksForEvent(user.id, leagueId, eventId),
+    getUserPicksForEvent(user.id, eventId),
     getLeaguePicksForEvent(leagueId, eventId),
   ]);
 
@@ -129,7 +129,6 @@ export default async function EventFightsPage({
         <FightsClient
           fights={fights}
           initialPicks={picks}
-          leagueId={leagueId}
           initialIsLocked={isLocked}
           eventDate={event.date}
           userAvatarUrl={profile?.avatar_url ?? null}
