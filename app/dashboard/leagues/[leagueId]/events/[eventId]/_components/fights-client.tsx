@@ -226,9 +226,15 @@ function FighterBox({
 
       {/* Pick indicator — reserved slot so both cards stay the same height */}
       <div className="flex h-8 items-center justify-center">
-        {isLocked
-          ? pickerAvatars.length > 0 && <AvatarStack avatars={pickerAvatars} />
-          : isPicked && <PickAvatar avatarUrl={userAvatarUrl} name={userName} />}
+        {isLocked ? (
+          pickerAvatars.length > 0 ? (
+            <AvatarStack avatars={pickerAvatars} />
+          ) : (
+            isPicked && <PickAvatar avatarUrl={userAvatarUrl} name={userName} />
+          )
+        ) : (
+          isPicked && <PickAvatar avatarUrl={userAvatarUrl} name={userName} />
+        )}
       </div>
     </div>
   );
@@ -266,9 +272,9 @@ export function FightsClient({
     return map;
   });
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    main_card: false,
-    prelim: false,
-    early_prelim: false,
+    main_card: true,
+    prelim: true,
+    early_prelim: true,
   });
   const [editingSections, setEditingSections] = useState<
     Record<string, boolean>
