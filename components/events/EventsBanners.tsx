@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { getEventsByIds } from "@/lib/db/events";
 import { StatusBadge } from "@/app/admin/events/_components/status-badge";
@@ -12,17 +13,36 @@ function formatDate(iso: string | null) {
   });
 }
 
-export async function EventsBanners({ eventIds }: { eventIds: string[] }) {
+export async function EventsBanners({
+  eventIds,
+  getHref,
+}: {
+  eventIds: string[];
+  getHref?: (eventId: string) => string;
+}) {
   const events = await getEventsByIds(eventIds);
   if (events.length === 0) return null;
 
   return (
     <div className="space-y-3">
-      {events.map((event) => (
-        <div
-          key={event.id}
-          className="overflow-hidden rounded-lg border border-border bg-card"
-        >
+      {events.map((event) => {
+        const href = getHref?.(event.id);
+        const Wrapper = href
+          ? ({ children }: { children: React.ReactNode }) => (
+              <Link
+                href={href}
+                className="block overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-neon/40 hover:bg-card/80"
+              >
+                {children}
+              </Link>
+            )
+          : ({ children }: { children: React.ReactNode }) => (
+              <div className="overflow-hidden rounded-lg border border-border bg-card">
+                {children}
+              </div>
+            );
+        return (
+        <Wrapper key={event.id}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 sm:p-4">
             {event.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -61,8 +81,9 @@ export async function EventsBanners({ eventIds }: { eventIds: string[] }) {
               </div>
             </div>
           </div>
-        </div>
-      ))}
+        </Wrapper>
+        );
+      })}
     </div>
   );
 }

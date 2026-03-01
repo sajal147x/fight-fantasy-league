@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { CalendarDays, ChevronLeft, Shield, Ticket, Trophy } from "lucide-react";
+import { CalendarDays, ChevronLeft, Shield, Ticket } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import {
   getLeagueById,
@@ -16,16 +16,11 @@ import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/app/admin/events/_components/status-badge";
 import { InviteCodeCopy } from "./_components/invite-code-copy";
 import { AddEventDialog } from "./_components/add-event-dialog";
+import { LeaderboardSection } from "./_components/leaderboard-section";
 import { ProfileButton } from "@/app/dashboard/_components/profile-button";
 import type { LeagueMemberRole } from "@/lib/db/leagues";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function ordinal(n: number) {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
-}
 
 function formatDate(iso: string | null) {
   if (!iso) return null;
@@ -83,13 +78,40 @@ export default async function LeagueDetailPage({
 
   const isOwner = membership.role === "owner";
 
-  // Fetch league events, available events, and leaderboard in parallel
-  const [ leagueEvents, availableEvents, leaderboard] =
-    await Promise.all([
-      getEventsForLeague(leagueId),
-      isOwner ? getAvailableEvents(leagueId) : Promise.resolve([]),
-      getLeagueLeaderboard(leagueId),
-    ]);
+  // Fetch league events and available events in parallel
+  const [leagueEvents, availableEvents] = await Promise.all([
+    getEventsForLeague(leagueId),
+    isOwner ? getAvailableEvents(leagueId) : Promise.resolve([]),
+  ]);
+
+  // Build event summaries for the filter pills
+  const eventSummaries = leagueEvents.map(({ events: e }) => ({
+    id: e.id,
+    name: e.name,
+    date: e.date ?? null,
+    status: e.status,
+  }));
+
+  // Default to the event whose date is closest to now
+  const defaultEventId =
+    eventSummaries.length === 0
+      ? null
+      : eventSummaries.reduce((closest, current) => {
+          const now = Date.now();
+          const closestDiff = Math.abs(
+            (closest.date ? new Date(closest.date).getTime() : 0) - now
+          );
+          const currentDiff = Math.abs(
+            (current.date ? new Date(current.date).getTime() : 0) - now
+          );
+          return currentDiff < closestDiff ? current : closest;
+        }).id;
+
+  // Fetch initial leaderboard for the default event selection
+  const leaderboard = await getLeagueLeaderboard(
+    leagueId,
+    defaultEventId ?? undefined
+  );
 
   const activeEvents = leagueEvents.filter(({ events: e }) => e.status !== "completed");
   const pastEvents = leagueEvents.filter(({ events: e }) => e.status === "completed");
@@ -141,145 +163,13 @@ export default async function LeagueDetailPage({
 
 
         {/* ── Leaderboard ───────────────────────────────────────────────────── */}
-        <section>
-          <div className="mb-3 flex items-center gap-2">
-            <Trophy size={16} className="text-muted-foreground" />
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Leaderboard
-            </h2>
-          </div>
-
-          {leaderboard.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border py-10 text-center">
-              <Trophy size={28} className="mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                No picks have been graded yet.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-lg border border-border bg-card">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/40">
-                    <th className="w-12 px-3 py-2.5 text-left font-semibold text-muted-foreground sm:px-4">
-                      #
-                    </th>
-                    <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground sm:px-4">
-                      Player
-                    </th>
-                    <th className="hidden px-3 py-2.5 text-right font-semibold text-muted-foreground sm:table-cell sm:px-4">
-                      Correct
-                    </th>
-                    <th className="hidden px-3 py-2.5 text-right font-semibold text-muted-foreground sm:table-cell sm:px-4">
-                      Picks
-                    </th>
-                    <th className="px-3 py-2.5 text-right font-semibold text-muted-foreground sm:px-4">
-                      Pts
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {leaderboard.map((entry, i) => {
-                    const isMe = entry.user_id === user.id;
-                    const displayName = entry.user_name;
-
-                    return (
-                      <tr
-                        key={entry.user_id}
-                        className={cn(
-                          "transition-colors",
-                          isMe
-                            ? "bg-neon/10 hover:bg-neon/15"
-                            : "hover:bg-muted/30"
-                        )}
-                      >
-                        {/* Rank */}
-                        <td className="px-3 py-2.5 sm:px-4 sm:py-3">
-                          <span
-                            className={cn(
-                              "font-mono text-xs",
-                              i === 0
-                                ? "font-bold text-neon drop-shadow-neon-sm"
-                                : "text-muted-foreground"
-                            )}
-                          >
-                            {ordinal(i + 1)}
-                          </span>
-                        </td>
-
-                        {/* Player */}
-                        <td className="px-3 py-2.5 sm:px-4 sm:py-3">
-                          <div className="flex min-w-0 items-center gap-2">
-                            {entry.avatar_url ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={entry.avatar_url}
-                                alt={displayName}
-                                className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-border sm:h-7 sm:w-7"
-                              />
-                            ) : (
-                              <div
-                                className={cn(
-                                  "h-6 w-6 shrink-0 rounded-full sm:h-7 sm:w-7",
-                                  isMe
-                                    ? "bg-neon/20 ring-1 ring-neon/40"
-                                    : "bg-muted"
-                                )}
-                              />
-                            )}
-                            <div className="min-w-0">
-                              <span
-                                className={cn(
-                                  "block truncate font-medium leading-tight",
-                                  isMe ? "text-neon" : "text-foreground"
-                                )}
-                              >
-                                {displayName}
-                              </span>
-                              {/* Mobile-only stat summary under name */}
-                              <span className="block text-xs text-muted-foreground sm:hidden">
-                                {entry.correct_picks}/{entry.total_picks} correct
-                              </span>
-                            </div>
-                            {isMe && (
-                              <span className="ml-0.5 shrink-0 text-xs font-normal text-neon/60">
-                                (you)
-                              </span>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Correct picks — desktop only */}
-                        <td className="hidden px-3 py-2.5 text-right tabular-nums text-foreground sm:table-cell sm:px-4 sm:py-3">
-                          {entry.correct_picks}
-                        </td>
-
-                        {/* Total picks — desktop only */}
-                        <td className="hidden px-3 py-2.5 text-right tabular-nums text-muted-foreground sm:table-cell sm:px-4 sm:py-3">
-                          {entry.total_picks}
-                        </td>
-
-                        {/* Points */}
-                        <td className="px-3 py-2.5 text-right sm:px-4 sm:py-3">
-                          <span
-                            className={cn(
-                              "font-semibold tabular-nums",
-                              i === 0
-                                ? "text-neon drop-shadow-neon-sm"
-                                : "text-foreground"
-                            )}
-                          >
-                            {entry.total_points}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+        <LeaderboardSection
+          leagueId={leagueId}
+          currentUserId={user.id}
+          events={eventSummaries}
+          initialLeaderboard={leaderboard}
+          defaultEventId={defaultEventId}
+        />
 
         {/* ── Events ────────────────────────────────────────────────────────── */}
         <section>

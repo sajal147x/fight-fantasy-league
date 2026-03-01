@@ -2,8 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getMembershipForUser } from "@/lib/db/leagues";
+import { getMembershipForUser, getLeagueLeaderboard } from "@/lib/db/leagues";
+import type { LeaderboardEntry } from "@/lib/db/leagues";
 import { addEventToLeague } from "@/lib/db/league-events";
+
+export async function fetchLeaderboard(
+  leagueId: string,
+  eventId: string | null
+): Promise<LeaderboardEntry[]> {
+  return getLeagueLeaderboard(leagueId, eventId ?? undefined);
+}
 
 export async function addEventToLeagueAction(
   leagueId: string,

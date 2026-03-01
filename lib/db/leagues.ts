@@ -190,9 +190,11 @@ export type LeaderboardEntry = {
  * total_points descending. Aggregates the picks table in-process since
  * PostgREST doesn't support GROUP BY directly.
  * Scopes to league members via league_members — no league_id on picks.
+ * When eventId is provided, only picks for fights in that event are counted.
  */
 export async function getLeagueLeaderboard(
-  leagueId: string
+  leagueId: string,
+  eventId?: string
 ): Promise<LeaderboardEntry[]> {
   const db = createAdminClient();
 
@@ -206,11 +208,25 @@ export async function getLeagueLeaderboard(
   const memberIds = (memberData ?? []).map((m) => m.user_id);
   if (memberIds.length === 0) return [];
 
-  // Fetch all picks for these members (points_earned may be null until graded)
-  const { data: picks, error } = await db
+  // Build picks query, optionally scoped to a single event's fights
+  let picksQuery = db
     .from("picks")
     .select("user_id, points_earned")
     .in("user_id", memberIds);
+
+  if (eventId) {
+    const { data: fightData, error: fightError } = await db
+      .from("fights")
+      .select("id")
+      .eq("event_id", eventId);
+    if (fightError) throw new Error(fightError.message);
+    const fightIds = (fightData ?? []).map((f) => f.id);
+    if (fightIds.length === 0) return [];
+    picksQuery = picksQuery.in("fight_id", fightIds);
+  }
+
+  // Fetch picks (points_earned may be null until graded)
+  const { data: picks, error } = await picksQuery;
 
   if (error) throw new Error(error.message);
   if (!picks || picks.length === 0) return [];

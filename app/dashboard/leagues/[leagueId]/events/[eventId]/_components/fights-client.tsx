@@ -9,7 +9,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { savePick } from "../actions";
 import type { FightWithDetails, FighterDetails, PickRow, LeaguePickEntry } from "@/lib/db/picks";
 import { formatWinMethod } from "@/lib/utils/fights";
 
@@ -86,7 +85,7 @@ function PickAvatar({
 type AvatarEntry = { userId: string; name: string | null; avatarUrl: string | null };
 
 function AvatarStack({ avatars }: { avatars: AvatarEntry[] }) {
-  const shown = avatars.slice(0, 6);
+  const shown = avatars.slice(0, 3);
   const extra = avatars.length - shown.length;
 
   return (
@@ -115,8 +114,8 @@ function AvatarStack({ avatars }: { avatars: AvatarEntry[] }) {
         </div>
       ))}
       {extra > 0 && (
-        <div className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full bg-muted ring-2 ring-card">
-          <span className="text-[9px] font-bold text-muted-foreground">
+        <div className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full bg-white ring-2 ring-card">
+          <span className="text-[9px] font-bold text-muted-foreground ">
             +{extra}
           </span>
         </div>
@@ -245,6 +244,7 @@ interface FightsClientProps {
   userAvatarUrl: string | null;
   userName: string | null;
   leaguePicks: LeaguePickEntry[];
+  onSavePick: (fightId: string, fighterId: string) => Promise<{ error?: string }>;
 }
 
 export function FightsClient({
@@ -255,6 +255,7 @@ export function FightsClient({
   userAvatarUrl,
   userName,
   leaguePicks,
+  onSavePick,
 }: FightsClientProps) {
   const [isLocked, setIsLocked] = useState(initialIsLocked);
   const [picks, setPicks] = useState<PicksMap>(() => {
@@ -290,7 +291,7 @@ export function FightsClient({
     // Optimistic: update state instantly
     setPicks((prev) => ({ ...prev, [fightId]: fighterId }));
     // Fire server action in background
-    savePick(fightId, fighterId)
+    onSavePick(fightId, fighterId)
       .then((result) => {
         if (result?.error) {
           setPicks(prevPicks);

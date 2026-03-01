@@ -67,14 +67,22 @@ export async function EventsList() {
         </h2>
       </div>
 
-      {activeIds.length > 0 && <EventsBanners eventIds={activeIds} />}
+      {activeIds.length > 0 && (
+        <EventsBanners
+          eventIds={activeIds}
+          getHref={(id) => `/dashboard/events/${id}`}
+        />
+      )}
 
       {pastIds.length > 0 && (
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Past Events
           </p>
-          <EventsBanners eventIds={pastIds} />
+          <EventsBanners
+            eventIds={pastIds}
+            getHref={(id) => `/dashboard/events/${id}`}
+          />
         </div>
       )}
     </section>

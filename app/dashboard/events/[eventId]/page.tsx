@@ -2,28 +2,24 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, MapPin, Swords } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getLeagueById, getMembershipForUser } from "@/lib/db/leagues";
 import { getEvent } from "@/lib/db/events";
 import {
   getEventFightsWithParticipants,
   getUserPicksForEvent,
-  getLeaguePicksForEvent,
 } from "@/lib/db/picks";
-import { savePick } from "./actions";
 import { getUserProfile } from "@/lib/db/users";
 import { StatusBadge } from "@/app/admin/events/_components/status-badge";
-import { FightsClient } from "./_components/fights-client";
+import { FightsClient } from "@/app/dashboard/leagues/[leagueId]/events/[eventId]/_components/fights-client";
 import { EventCountdown } from "@/components/events/EventCountdown";
 import { ProfileButton } from "@/app/dashboard/_components/profile-button";
+import { savePick } from "./actions";
 
-// ─── Page ────────────────────────────────────────────────────────────────────
-
-export default async function EventFightsPage({
+export default async function DashboardEventPage({
   params,
 }: {
-  params: { leagueId: string; eventId: string };
+  params: { eventId: string };
 }) {
-  const { leagueId, eventId } = params;
+  const { eventId } = params;
 
   const supabase = await createClient();
   const {
@@ -32,23 +28,18 @@ export default async function EventFightsPage({
 
   if (!user) redirect("/login");
 
-  const [league, membership, event, profile] = await Promise.all([
-    getLeagueById(leagueId),
-    getMembershipForUser(leagueId, user.id),
+  const [event, profile] = await Promise.all([
     getEvent(eventId),
     getUserProfile(user.id),
   ]);
 
-  if (!league || !event) notFound();
-  if (!membership) redirect("/dashboard");
+  if (!event) notFound();
 
-  const [fights, picks, leaguePicks] = await Promise.all([
+  const [fights, picks] = await Promise.all([
     getEventFightsWithParticipants(eventId),
     getUserPicksForEvent(user.id, eventId),
-    getLeaguePicksForEvent(leagueId, eventId),
   ]);
 
-  // Picks lock 1 hour before the event start time
   const isLocked = event.date
     ? new Date() >= new Date(new Date(event.date).getTime() - 60 * 60 * 1000)
     : false;
@@ -72,18 +63,8 @@ export default async function EventFightsPage({
       <main className="mx-auto max-w-4xl space-y-8 px-4 py-8">
         {/* ── Breadcrumb ─────────────────────────────────────────────────────── */}
         <nav className="flex items-center gap-1 text-sm text-muted-foreground">
-          <Link
-            href="/dashboard"
-            className="transition-colors hover:text-neon"
-          >
-            My Leagues
-          </Link>
-          <ChevronLeft size={14} className="rotate-180" />
-          <Link
-            href={`/dashboard/leagues/${leagueId}`}
-            className="transition-colors hover:text-neon"
-          >
-            {league.name}
+          <Link href="/dashboard" className="transition-colors hover:text-neon">
+            Dashboard
           </Link>
           <ChevronLeft size={14} className="rotate-180" />
           <span className="text-foreground">{event.name}</span>
@@ -134,7 +115,7 @@ export default async function EventFightsPage({
           eventDate={event.date}
           userAvatarUrl={profile?.avatar_url ?? null}
           userName={profile?.name ?? user.email ?? null}
-          leaguePicks={leaguePicks}
+          leaguePicks={[]}
           onSavePick={savePick}
         />
       </main>

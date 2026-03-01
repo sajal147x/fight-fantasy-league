@@ -3,6 +3,13 @@ import type { EventRow } from "./events";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type LeagueEventSummary = {
+  id: string;
+  name: string;
+  date: string | null;
+  status: string;
+};
+
 export type LeagueEventRow = {
   id: string;
   league_id: string;
@@ -12,6 +19,25 @@ export type LeagueEventRow = {
 };
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
+
+/**
+ * Returns a lightweight summary of all events linked to a league,
+ * ordered by date ascending. Used for filter pills on the leaderboard.
+ */
+export async function getLeagueEvents(
+  leagueId: string
+): Promise<LeagueEventSummary[]> {
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("league_events")
+    .select("events ( id, name, date, status )")
+    .eq("league_id", leagueId)
+    .order("events(date)", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? [])
+    .map((r) => r.events as unknown as LeagueEventSummary)
+    .filter(Boolean);
+}
 
 /** Returns all events linked to a league with full event details. */
 export async function getEventsForLeague(
