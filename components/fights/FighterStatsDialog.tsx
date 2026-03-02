@@ -199,8 +199,8 @@ export function FighterStatsDialog({
             {/* Stat rows */}
             <StatRow
               label="Odds"
-              v1={participants!.p1.odds}
-              v2={participants!.p2.odds}
+              v1={participants!.p1.odds != null ? (parseFloat(participants!.p1.odds) > 0 ? `+${participants!.p1.odds}` : participants!.p1.odds) : null}
+              v2={participants!.p2.odds != null ? (parseFloat(participants!.p2.odds) > 0 ? `+${participants!.p2.odds}` : participants!.p2.odds) : null}
             />
             <StatRow label="Record" v1={f1.record} v2={f2.record} />
             <StatRow

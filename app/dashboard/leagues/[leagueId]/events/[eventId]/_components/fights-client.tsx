@@ -171,12 +171,31 @@ function FighterBox({
           : undefined
       }
       className={cn(
-        "flex flex-1 flex-col items-center gap-2 rounded-xl border bg-background p-3 transition-all duration-200",
+        "relative flex flex-1 flex-col items-center gap-2 rounded-xl border bg-background p-3 transition-all duration-200",
         "border-border",
         isClickable && "cursor-pointer hover:border-neon/40 hover:bg-neon/5",
         isLocked && "cursor-not-allowed opacity-60"
       )}
     >
+      {/* FAV / DOG badge */}
+      {odds != null && (
+        (() => {
+          const isFav = parseFloat(odds) < 0;
+          return (
+            <span
+              className={cn(
+                "absolute right-2 top-2 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ring-1",
+                isFav
+                  ? "bg-green-500/10 text-green-400 ring-green-500/30"
+                  : "bg-red-500/10 text-red-400 ring-red-500/30"
+              )}
+            >
+              {isFav ? "FAV" : "DOG"}
+            </span>
+          );
+        })()
+      )}
+
       {/* Fighter image */}
       <div
         className={cn(
@@ -216,14 +235,7 @@ function FighterBox({
         {resultLabel ?? "-"}
       </span>
 
-      {/* Odds */}
-      {odds ? (
-        <span className="text-xs font-semibold text-muted-foreground">
-          {odds}
-        </span>
-      ) : (
-        <span className="select-none text-xs text-transparent">-</span>
-      )}
+
 
       {/* Pick indicator — reserved slot so both cards stay the same height */}
       <div className="flex h-8 items-center justify-center">

@@ -117,14 +117,16 @@ type EditFormState = {
   winMethod: string;
   round: string;
   time: string;
+  fighter1Odds: string;
+  fighter2Odds: string;
 };
 
 function fightToEditForm(fight: FightRow): EditFormState {
-  const f1 = fight.fight_participants.find((p) => p.corner === "fighter_1")?.fighters;
-  const f2 = fight.fight_participants.find((p) => p.corner === "fighter_2")?.fighters;
+  const f1p = fight.fight_participants.find((p) => p.corner === "fighter_1");
+  const f2p = fight.fight_participants.find((p) => p.corner === "fighter_2");
   return {
-    fighter1Id: f1?.id ?? "",
-    fighter2Id: f2?.id ?? "",
+    fighter1Id: f1p?.fighters.id ?? "",
+    fighter2Id: f2p?.fighters.id ?? "",
     weightClass: fight.weight_class ?? "",
     category: fight.category as FightCategory,
     boutOrder: String(fight.bout_order),
@@ -133,6 +135,8 @@ function fightToEditForm(fight: FightRow): EditFormState {
     winMethod: fight.win_method ?? "",
     round: fight.round != null ? String(fight.round) : "",
     time: fight.time ?? "",
+    fighter1Odds: f1p?.odds ?? "",
+    fighter2Odds: f2p?.odds ?? "",
   };
 }
 
@@ -426,6 +430,8 @@ export function FightsTable({
       winMethod: editForm.winMethod || null,
       round: editForm.round ? parseInt(editForm.round, 10) : null,
       time: editForm.time.trim() || null,
+      fighter1Odds: editForm.fighter1Odds.trim() || null,
+      fighter2Odds: editForm.fighter2Odds.trim() || null,
     });
     setEditLoading(false);
 
@@ -682,6 +688,30 @@ export function FightsTable({
                   onChange={(id) => setEditField("fighter2Id", id)}
                   placeholder="Select fighter…"
                   excludeId={editForm.fighter1Id}
+                />
+              </div>
+            </div>
+
+            {/* Odds */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="e-odds1">Fighter 1 Odds</Label>
+                <Input
+                  id="e-odds1"
+                  type="number"
+                  placeholder="-150"
+                  value={editForm.fighter1Odds}
+                  onChange={(e) => setEditField("fighter1Odds", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="e-odds2">Fighter 2 Odds</Label>
+                <Input
+                  id="e-odds2"
+                  type="number"
+                  placeholder="+220"
+                  value={editForm.fighter2Odds}
+                  onChange={(e) => setEditField("fighter2Odds", e.target.value)}
                 />
               </div>
             </div>

@@ -15,6 +15,7 @@ type FighterInFight = FighterSummary & {
 
 export type FightParticipant = {
   corner: "fighter_1" | "fighter_2";
+  odds: string | null;
   fighters: FighterInFight;
 };
 
@@ -42,6 +43,8 @@ export type UpdateFightPayload = {
   winMethod: string | null;
   round: number | null;
   time: string | null;
+  fighter1Odds: string | null;
+  fighter2Odds: string | null;
 };
 
 export type AddFightPayload = {
@@ -62,7 +65,7 @@ export async function getFightsForEvent(eventId: string): Promise<FightRow[]> {
     .from("fights")
     .select(
       `id, bout_order, weight_class, category, status, winner_id, win_method, round, time,
-       fight_participants ( corner, fighters ( id, name, nickname, age, height, weight, reach, record ) )`
+       fight_participants ( corner, odds, fighters ( id, name, nickname, age, height, weight, reach, record ) )`
     )
     .eq("event_id", eventId)
     .order("bout_order");
@@ -116,14 +119,14 @@ export async function updateFight(
   // Update both corners
   const { error: p1Err } = await db
     .from("fight_participants")
-    .update({ fighter_id: payload.fighter1Id })
+    .update({ fighter_id: payload.fighter1Id, odds: payload.fighter1Odds })
     .eq("fight_id", fightId)
     .eq("corner", "fighter_1");
   if (p1Err) return { error: p1Err.message };
 
   const { error: p2Err } = await db
     .from("fight_participants")
-    .update({ fighter_id: payload.fighter2Id })
+    .update({ fighter_id: payload.fighter2Id, odds: payload.fighter2Odds })
     .eq("fight_id", fightId)
     .eq("corner", "fighter_2");
   if (p2Err) return { error: p2Err.message };
