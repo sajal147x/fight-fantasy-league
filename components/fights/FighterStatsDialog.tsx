@@ -210,8 +210,8 @@ export function FighterStatsDialog({
             />
             <StatRow
               label="Height"
-              v1={f1.height != null ? `${f1.height} cm` : null}
-              v2={f2.height != null ? `${f2.height} cm` : null}
+              v1={f1.height != null ? `${f1.height} ft` : null}
+              v2={f2.height != null ? `${f2.height} ft` : null}
             />
             <StatRow
               label="Weight"
