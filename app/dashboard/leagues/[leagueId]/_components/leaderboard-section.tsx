@@ -31,8 +31,8 @@ function PicksBar({ picks, total }: { picks: number; total: number }) {
   const pct = total > 0 ? Math.round((picks / total) * 100) : 0;
   return (
     <div className="w-24 space-y-0.5">
-      <p className="text-right font-mono text-[10px] text-muted-foreground tabular-nums">
-        {picks}/{total} picks made
+      <p className="text-right font-mono text-[10px]  tabular-nums">
+        Picks: {picks}/{total}
       </p>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
         <div
