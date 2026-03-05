@@ -186,98 +186,19 @@ export type LeaderboardEntry = {
   total_points: number;
 };
 
-/**
- * Returns leaderboard stats for ALL league members ordered by total_points
- * descending. Members with zero picks are included with zeroed stats.
- *
- * When eventId is provided, scopes to fights in that event.
- * When omitted, aggregates across all events linked to the league.
- */
 export async function getLeagueLeaderboard(
-  leagueId: string,
-  eventId?: string
+    leagueId: string,
+    eventId?: string
 ): Promise<LeaderboardEntry[]> {
   const db = createAdminClient();
 
-  // 1. Fetch all members with their profiles in one join
-  const { data: memberRows, error: memberError } = await db
-    .from("league_members")
-    .select("user_id, users ( name, avatar_url )")
-    .eq("league_id", leagueId);
-  if (memberError) throw new Error(memberError.message);
-  if (!memberRows || memberRows.length === 0) return [];
+  const { data, error } = await db.rpc('get_league_leaderboard', {
+    p_league_id: leagueId,
+    p_event_id: eventId ?? null,
+  });
 
-  const memberIds = memberRows.map((m) => m.user_id);
-
-  // 2. Resolve fight IDs + total fight count
-  let fightIds: string[] = [];
-  let total_fights = 0;
-
-  if (eventId) {
-    const { data: fightData, error: fightError } = await db
-      .from("fights")
-      .select("id")
-      .eq("event_id", eventId)
-      .neq("status", "cancelled");
-    if (fightError) throw new Error(fightError.message);
-    fightIds = (fightData ?? []).map((f) => f.id);
-    total_fights = fightIds.length;
-  } else {
-    // Collect all event IDs linked to this league
-    const { data: leagueEventData, error: leagueEventError } = await db
-      .from("league_events")
-      .select("event_id")
-      .eq("league_id", leagueId);
-    if (leagueEventError) throw new Error(leagueEventError.message);
-
-    const eventIds = (leagueEventData ?? []).map((r) => r.event_id);
-    if (eventIds.length > 0) {
-      const { data: fightData, error: fightError } = await db
-        .from("fights")
-        .select("id")
-        .in("event_id", eventIds)
-        .neq("status", "cancelled");
-      if (fightError) throw new Error(fightError.message);
-      fightIds = (fightData ?? []).map((f) => f.id);
-      total_fights = fightIds.length;
-    }
-  }
-
-  // 3. Fetch picks for all members (scoped to the resolved fight IDs)
-  const statsMap = new Map<string, { picks_made: number; total_points: number }>();
-
-  if (fightIds.length > 0) {
-    const { data: picks, error: picksError } = await db
-      .from("picks")
-      .select("user_id, points_earned")
-      .in("user_id", memberIds)
-      .in("fight_id", fightIds);
-    if (picksError) throw new Error(picksError.message);
-
-    for (const pick of picks ?? []) {
-      const s = statsMap.get(pick.user_id) ?? { picks_made: 0, total_points: 0 };
-      s.picks_made += 1;
-      const pts = (pick as { user_id: string; points_earned: number | null }).points_earned;
-      if (pts != null) s.total_points += pts;
-      statsMap.set(pick.user_id, s);
-    }
-  }
-
-  // 4. Build result from members (everyone appears, zero defaults for no picks)
-  return memberRows
-    .map((m) => {
-      const profile = m.users as unknown as { name: string | null; avatar_url: string | null } | null;
-      const stats = statsMap.get(m.user_id) ?? { picks_made: 0, total_points: 0 };
-      return {
-        user_id: m.user_id,
-        user_name: profile?.name ?? m.user_id,
-        avatar_url: profile?.avatar_url ?? null,
-        picks_made: stats.picks_made,
-        total_fights,
-        total_points: stats.total_points,
-      };
-    })
-    .sort((a, b) => b.total_points - a.total_points);
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }
 
 // ─── Mutations ────────────────────────────────────────────────────────────────
