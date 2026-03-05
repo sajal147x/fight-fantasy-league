@@ -27,6 +27,23 @@ interface LeaderboardSectionProps {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+function PicksBar({ picks, total }: { picks: number; total: number }) {
+  const pct = total > 0 ? Math.round((picks / total) * 100) : 0;
+  return (
+    <div className="w-24 space-y-0.5">
+      <p className="text-right font-mono text-[10px] text-muted-foreground tabular-nums">
+        {picks}/{total} picks made
+      </p>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+        <div
+          className="h-full rounded-full bg-blue-500 transition-all duration-300"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function ordinal(n: number) {
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
@@ -98,9 +115,7 @@ export function LeaderboardSection({
         {leaderboard.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border py-10 text-center">
             <Trophy size={28} className="mx-auto mb-2 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              No picks have been graded yet.
-            </p>
+            <p className="text-sm text-muted-foreground">No members yet.</p>
           </div>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border bg-card">
@@ -112,9 +127,6 @@ export function LeaderboardSection({
                   </th>
                   <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground sm:px-4">
                     Player
-                  </th>
-                  <th className="hidden px-3 py-2.5 text-right font-semibold text-muted-foreground sm:table-cell sm:px-4">
-                    Correct
                   </th>
                   <th className="hidden px-3 py-2.5 text-right font-semibold text-muted-foreground sm:table-cell sm:px-4">
                     Picks
@@ -180,9 +192,9 @@ export function LeaderboardSection({
                             >
                               {entry.user_name}
                             </span>
-                            <span className="block text-xs text-muted-foreground sm:hidden">
-                              {entry.correct_picks}/{entry.total_picks} correct
-                            </span>
+                            <div className="mt-1 sm:hidden">
+                              <PicksBar picks={entry.picks_made} total={entry.total_fights} />
+                            </div>
                           </div>
                           {isMe && (
                             <span className="ml-0.5 shrink-0 text-xs font-normal text-neon/60">
@@ -192,14 +204,11 @@ export function LeaderboardSection({
                         </div>
                       </td>
 
-                      {/* Correct picks — desktop only */}
-                      <td className="hidden px-3 py-2.5 text-right tabular-nums text-foreground sm:table-cell sm:px-4 sm:py-3">
-                        {entry.correct_picks}
-                      </td>
-
-                      {/* Total picks — desktop only */}
-                      <td className="hidden px-3 py-2.5 text-right tabular-nums text-muted-foreground sm:table-cell sm:px-4 sm:py-3">
-                        {entry.total_picks}
+                      {/* Picks progress bar — desktop only */}
+                      <td className="hidden px-3 py-2.5 sm:table-cell sm:px-4 sm:py-3">
+                        <div className="flex justify-end">
+                          <PicksBar picks={entry.picks_made} total={entry.total_fights} />
+                        </div>
                       </td>
 
                       {/* Points */}

@@ -181,17 +181,17 @@ export type LeaderboardEntry = {
   user_id: string;
   user_name: string;
   avatar_url: string | null;
+  picks_made: number;
+  total_fights: number;
   total_points: number;
-  total_picks: number;
-  correct_picks: number;
 };
 
 /**
- * Returns leaderboard stats for all members of a league, ordered by
- * total_points descending. Aggregates the picks table in-process since
- * PostgREST doesn't support GROUP BY directly.
- * Scopes to league members via league_members — no league_id on picks.
- * When eventId is provided, only picks for fights in that event are counted.
+ * Returns leaderboard stats for ALL league members ordered by total_points
+ * descending. Members with zero picks are included with zeroed stats.
+ *
+ * When eventId is provided, scopes to fights in that event.
+ * When omitted, aggregates across all events linked to the league.
  */
 export async function getLeagueLeaderboard(
   leagueId: string,
@@ -199,87 +199,82 @@ export async function getLeagueLeaderboard(
 ): Promise<LeaderboardEntry[]> {
   const db = createAdminClient();
 
-  // Get the user_ids of everyone in this league
-  const { data: memberData, error: memberError } = await db
+  // 1. Fetch all members with their profiles in one join
+  const { data: memberRows, error: memberError } = await db
     .from("league_members")
-    .select("user_id")
+    .select("user_id, users ( name, avatar_url )")
     .eq("league_id", leagueId);
   if (memberError) throw new Error(memberError.message);
+  if (!memberRows || memberRows.length === 0) return [];
 
-  const memberIds = (memberData ?? []).map((m) => m.user_id);
-  if (memberIds.length === 0) return [];
+  const memberIds = memberRows.map((m) => m.user_id);
 
-  // Build picks query, optionally scoped to a single event's fights
-  let picksQuery = db
-    .from("picks")
-    .select("user_id, points_earned")
-    .in("user_id", memberIds);
+  // 2. Resolve fight IDs + total fight count
+  let fightIds: string[] = [];
+  let total_fights = 0;
 
   if (eventId) {
     const { data: fightData, error: fightError } = await db
       .from("fights")
       .select("id")
-      .eq("event_id", eventId);
+      .eq("event_id", eventId)
+      .neq("status", "cancelled");
     if (fightError) throw new Error(fightError.message);
-    const fightIds = (fightData ?? []).map((f) => f.id);
-    if (fightIds.length === 0) return [];
-    picksQuery = picksQuery.in("fight_id", fightIds);
-  }
+    fightIds = (fightData ?? []).map((f) => f.id);
+    total_fights = fightIds.length;
+  } else {
+    // Collect all event IDs linked to this league
+    const { data: leagueEventData, error: leagueEventError } = await db
+      .from("league_events")
+      .select("event_id")
+      .eq("league_id", leagueId);
+    if (leagueEventError) throw new Error(leagueEventError.message);
 
-  // Fetch picks (points_earned may be null until graded)
-  const { data: picks, error } = await picksQuery;
-
-  if (error) throw new Error(error.message);
-  if (!picks || picks.length === 0) return [];
-
-  // Aggregate per user_id
-  const statsMap = new Map<
-    string,
-    { total_points: number; total_picks: number; correct_picks: number }
-  >();
-  for (const pick of picks) {
-    const s = statsMap.get(pick.user_id) ?? {
-      total_points: 0,
-      total_picks: 0,
-      correct_picks: 0,
-    };
-    s.total_picks += 1;
-    const pts = (pick as { user_id: string; points_earned: number | null })
-      .points_earned;
-    if (pts != null) {
-      s.total_points += pts;
-      if (pts > 0) s.correct_picks += 1;
+    const eventIds = (leagueEventData ?? []).map((r) => r.event_id);
+    if (eventIds.length > 0) {
+      const { data: fightData, error: fightError } = await db
+        .from("fights")
+        .select("id")
+        .in("event_id", eventIds)
+        .neq("status", "cancelled");
+      if (fightError) throw new Error(fightError.message);
+      fightIds = (fightData ?? []).map((f) => f.id);
+      total_fights = fightIds.length;
     }
-    statsMap.set(pick.user_id, s);
   }
 
-  const userIds = Array.from(statsMap.keys());
+  // 3. Fetch picks for all members (scoped to the resolved fight IDs)
+  const statsMap = new Map<string, { picks_made: number; total_points: number }>();
 
-  // Fetch name and avatar_url from public.users, and emails from auth in parallel
-  const [profilesResult, authResult] = await Promise.all([
-    db.from("users").select("id, name, avatar_url").in("id", userIds),
-    db.auth.admin.listUsers({ perPage: 1000 }),
-  ]);
+  if (fightIds.length > 0) {
+    const { data: picks, error: picksError } = await db
+      .from("picks")
+      .select("user_id, points_earned")
+      .in("user_id", memberIds)
+      .in("fight_id", fightIds);
+    if (picksError) throw new Error(picksError.message);
 
-  const profileMap = new Map(
-    (profilesResult.data ?? []).map((p) => [
-      p.id,
-      p as { id: string; name: string | null; avatar_url: string | null },
-    ])
-  );
-  const emailMap = new Map(
-    (authResult.data?.users ?? []).map((u) => [u.id, u.email ?? u.id])
-  );
+    for (const pick of picks ?? []) {
+      const s = statsMap.get(pick.user_id) ?? { picks_made: 0, total_points: 0 };
+      s.picks_made += 1;
+      const pts = (pick as { user_id: string; points_earned: number | null }).points_earned;
+      if (pts != null) s.total_points += pts;
+      statsMap.set(pick.user_id, s);
+    }
+  }
 
-  return Array.from(statsMap.entries())
-    .map(([user_id, stats]) => {
-      const profile = profileMap.get(user_id);
+  // 4. Build result from members (everyone appears, zero defaults for no picks)
+  return memberRows
+    .map((m) => {
+      const profile = m.users as unknown as { name: string | null; avatar_url: string | null } | null;
+      const stats = statsMap.get(m.user_id) ?? { picks_made: 0, total_points: 0 };
       return {
-        user_id,
-        user_name:
-          profile?.name ?? emailMap.get(user_id) ?? user_id,
+        user_id: m.user_id,
+        user_name: profile?.name ?? m.user_id,
         avatar_url: profile?.avatar_url ?? null,
-        ...stats,
+        picks_made: stats.picks_made,
+        total_fights,
+        total_points: stats.total_points,
       };
     })
     .sort((a, b) => b.total_points - a.total_points);
