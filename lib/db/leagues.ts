@@ -16,6 +16,7 @@ export type LeagueRow = {
   scoring_ruleset_id: string | null;
   created_by: string;
   created_at: string;
+  image_url: string | null;
 };
 
 export type LeagueWithMeta = LeagueRow & {
@@ -47,7 +48,7 @@ export async function getLeaguesForUser(
     .select(
       `role,
        leagues (
-         id, name, invite_code, scoring_ruleset_id, created_by, created_at,
+         id, name, invite_code, scoring_ruleset_id, created_by, created_at, image_url,
          scoring_rulesets ( id, name )
        )`
     )
@@ -92,7 +93,7 @@ export async function getLeagueById(
   const db = createAdminClient();
   const { data, error } = await db
     .from("leagues")
-    .select("id, name, invite_code, scoring_ruleset_id, created_by, created_at")
+    .select("id, name, invite_code, scoring_ruleset_id, created_by, created_at, image_url")
     .eq("id", leagueId)
     .single();
   if (error) {
@@ -340,4 +341,43 @@ export async function joinLeagueByInviteCode(
     return { error: insertError.message };
   }
   return { leagueId: league.id };
+}
+
+// ─── Image upload ─────────────────────────────────────────────────────────────
+
+/**
+ * Uploads a league image to the `leaguePictures` storage bucket as
+ * `{leagueId}.{ext}`, then stores the resulting public URL in leagues.image_url.
+ */
+export async function updateLeagueImage(
+  leagueId: string,
+  file: File
+): Promise<{ url: string } | { error: string }> {
+  const db = createAdminClient();
+
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+  const path = `${leagueId}.${ext}`;
+
+  // Convert to ArrayBuffer for reliable upload in the Node.js runtime
+  const arrayBuffer = await file.arrayBuffer();
+
+  const { error: uploadError } = await db.storage
+    .from("leaguePictures")
+    .upload(path, arrayBuffer, {
+      upsert: true,
+      contentType: file.type || `image/${ext}`,
+    });
+
+  if (uploadError) return { error: uploadError.message };
+
+  const { data: urlData } = db.storage.from("leaguePictures").getPublicUrl(path);
+
+  const { error: updateError } = await db
+    .from("leagues")
+    .update({ image_url: urlData.publicUrl })
+    .eq("id", leagueId);
+
+  if (updateError) return { error: updateError.message };
+
+  return { url: urlData.publicUrl };
 }

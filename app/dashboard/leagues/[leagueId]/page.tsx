@@ -17,6 +17,7 @@ import { StatusBadge } from "@/app/admin/events/_components/status-badge";
 import { InviteCodeCopy } from "./_components/invite-code-copy";
 import { AddEventDialog } from "./_components/add-event-dialog";
 import { LeaderboardSection } from "./_components/leaderboard-section";
+import { LeagueImage } from "./_components/league-image";
 import { ProfileButton } from "@/app/dashboard/_components/profile-button";
 import type { LeagueMemberRole } from "@/lib/db/leagues";
 
@@ -144,7 +145,12 @@ export default async function LeagueDetailPage({
 
         {/* ── League header ──────────────────────────────────────────────────── */}
         <div className="space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-start gap-4">
+            <LeagueImage
+              leagueId={leagueId}
+              name={league.name}
+              imageUrl={league.image_url ?? null}
+            />
             <div className="space-y-1">
               <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
                 {league.name}

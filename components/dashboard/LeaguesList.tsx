@@ -112,9 +112,22 @@ export async function LeaguesList({ userId }: { userId: string }) {
               )}
 
               <div className="flex items-start justify-between gap-2">
-                <h2 className="line-clamp-2 text-base font-semibold leading-snug text-foreground">
-                  {league.name}
-                </h2>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {/* League avatar */}
+                  {league.image_url && (
+                    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg ring-1 ring-border">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={league.image_url}
+                        alt={league.name}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  )}
+                  <h2 className="line-clamp-2 text-base font-semibold leading-snug text-foreground">
+                    {league.name}
+                  </h2>
+                </div>
                 {isGlobal && (
                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-400 ring-1 ring-blue-500/30">
                     <Globe size={9} />

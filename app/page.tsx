@@ -12,7 +12,7 @@ export default async function Home() {
       <div className="flex flex-col items-center justify-center py-20 px-8 text-center">
         <div className="space-y-6 max-w-lg">
           <h1 className="text-5xl font-extrabold tracking-tight text-neon drop-shadow-neon">
-            Fight Fantasy League
+            Fantasy Fight League
           </h1>
           <p className="text-lg text-muted-foreground">
             Build your roster. Pick your fighters. Win the fight.
