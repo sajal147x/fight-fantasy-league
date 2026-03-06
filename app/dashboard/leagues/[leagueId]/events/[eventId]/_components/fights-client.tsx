@@ -289,9 +289,7 @@ export function FightsClient({
     prelim: true,
     early_prelim: true,
   });
-  const [editingSections, setEditingSections] = useState<
-    Record<string, boolean>
-  >({});
+  const [isEditing, setIsEditing] = useState(false);
   const [selectedFight, setSelectedFight] = useState<{
     f1Id: string;
     f2Id: string;
@@ -304,7 +302,7 @@ export function FightsClient({
     const tick = () => {
       const locked = computeIsLocked(eventDate);
       setIsLocked(locked);
-      if (locked) setEditingSections({});
+      if (locked) setIsEditing(false);
     };
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
@@ -362,11 +360,25 @@ export function FightsClient({
           {pickedCount} of {fights.length} picks made
         </p>
 
-        {isLocked && (
+        {isLocked ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             <Lock size={11} />
             Picks Locked
           </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsEditing((prev) => !prev)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-150 active:scale-95",
+              isEditing
+                ? "border-blue-500/40 bg-blue-500/10 text-blue-400"
+                : "border-blue-500/60 bg-blue-500/15 text-blue-400 hover:bg-blue-500/25"
+            )}
+          >
+            <Pencil size={11} />
+            {isEditing ? "Editing" : "Edit Picks"}
+          </button>
         )}
       </div>
 
@@ -383,7 +395,6 @@ export function FightsClient({
             const catFights = groups[cat] ?? [];
             if (catFights.length === 0) return null;
             const isOpen = openSections[cat] ?? false;
-            const isEditingCat = editingSections[cat] ?? false;
 
             return (
               <Collapsible
@@ -421,44 +432,11 @@ export function FightsClient({
                     </h2>
                   </CollapsibleTrigger>
 
-                  {/* Edit / Done toggle */}
-                  {!isLocked && (
-                    <>
-                      <div className="w-px self-stretch bg-border" />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEditingSections((prev) => ({
-                            ...prev,
-                            [cat]: !prev[cat],
-                          }))
-                        }
-                        className={cn(
-                          "inline-flex shrink-0 items-center gap-1.5 px-4 text-[11px] font-semibold transition-all duration-150 active:scale-95",
-                          isEditingCat
-                            ? "bg-neon/10 text-neon"
-                            : "text-muted-foreground hover:bg-muted/50 hover:text-neon"
-                        )}
-                      >
-                        {isEditingCat ? (
-                          <>
-                            <Check size={10} />
-                            Done
-                          </>
-                        ) : (
-                          <>
-                            <Pencil size={10} />
-                            Edit
-                          </>
-                        )}
-                      </button>
-                    </>
-                  )}
                 </div>
 
                 {/* ── Fight cards ──────────────────────────────────────── */}
                 <CollapsibleContent className="space-y-3 pb-2">
-                  {isEditingCat && (
+                  {isEditing && (
                     <p className="rounded-lg border border-neon/20 bg-neon/5 px-4 py-2 text-center text-xs text-neon/80">
                       Tap a fighter to record your pick
                     </p>
@@ -491,7 +469,7 @@ export function FightsClient({
                               fighter={f1.fighters}
                               odds={f1.odds}
                               isPicked={pickedFighterId === f1.fighters.id}
-                              isEditing={isEditingCat}
+                              isEditing={isEditing}
                               isLocked={isLocked}
                               isWinner={f1IsWinner}
                               isLoser={hasResult && !f1IsWinner}
@@ -536,7 +514,7 @@ export function FightsClient({
                               fighter={f2.fighters}
                               odds={f2.odds}
                               isPicked={pickedFighterId === f2.fighters.id}
-                              isEditing={isEditingCat}
+                              isEditing={isEditing}
                               isLocked={isLocked}
                               isWinner={f2IsWinner}
                               isLoser={hasResult && !f2IsWinner}
@@ -582,6 +560,18 @@ export function FightsClient({
             );
           })}
         </div>
+      )}
+
+      {/* ── Save button ───────────────────────────────────────────────────── */}
+      {isEditing && !isLocked && (
+        <button
+          type="button"
+          onClick={() => setIsEditing(false)}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-neon py-3 text-sm font-bold text-background transition-all duration-150 hover:bg-neon/90 active:scale-[0.98]"
+        >
+          <Check size={14} />
+          Save Picks
+        </button>
       )}
 
       {selectedFight && (

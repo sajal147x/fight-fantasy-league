@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
-import { getUpcomingEventIds } from "@/lib/db/events";
+import { getAllEventIdsByStatus } from "@/lib/db/events";
 import { EventsBanners } from "@/components/events/EventsBanners";
 
 export default async function Home() {
-  const eventIds = await getUpcomingEventIds();
+  const { activeIds, pastIds } = await getAllEventIdsByStatus();
 
   return (
     <main className="min-h-screen bg-background">
@@ -26,16 +26,24 @@ export default async function Home() {
         </div>
       </div>
 
-      {/* Upcoming Events */}
-      {eventIds.length > 0 && (
-        <div className="mx-auto max-w-2xl px-4 pb-16 space-y-4">
+      {/* Events */}
+      {(activeIds.length > 0 || pastIds.length > 0) && (
+        <div className="mx-auto max-w-2xl px-4 pb-16 space-y-6">
           <div className="flex items-center gap-2">
             <CalendarDays size={16} className="text-muted-foreground" />
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Upcoming Events
+              Events
             </h2>
           </div>
-          <EventsBanners eventIds={eventIds} />
+          {activeIds.length > 0 && <EventsBanners eventIds={activeIds} />}
+          {pastIds.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Past Events
+              </p>
+              <EventsBanners eventIds={pastIds} />
+            </div>
+          )}
         </div>
       )}
     </main>
