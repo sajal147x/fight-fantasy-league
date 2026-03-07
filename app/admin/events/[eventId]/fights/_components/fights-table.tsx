@@ -135,8 +135,8 @@ function fightToEditForm(fight: FightRow): EditFormState {
     winMethod: fight.win_method ?? "",
     round: fight.round != null ? String(fight.round) : "",
     time: fight.time ?? "",
-    fighter1Odds: f1p?.odds ?? "",
-    fighter2Odds: f2p?.odds ?? "",
+    fighter1Odds: f1p?.odds != null ? String(f1p.odds) : "",
+    fighter2Odds: f2p?.odds != null ? String(f2p.odds) : "",
   };
 }
 

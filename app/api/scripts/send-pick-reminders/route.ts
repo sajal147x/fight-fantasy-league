@@ -171,10 +171,17 @@ export async function POST(req: NextRequest) {
     (profileData ?? []).map((u: { id: string; name: string | null }) => [u.id, u.name])
   );
 
+  const RETRY_EMAILS: string[] = [
+    // fill in emails here
+  ];
+
   // Merge: use auth email + public name
-  const users = (authData?.users ?? [])
+  const allUsers = (authData?.users ?? [])
     .filter((u) => !!u.email)
     .map((u) => ({ id: u.id, email: u.email!, name: nameMap.get(u.id) ?? null }));
+
+  // TEMP: remove this filter when sending to all users
+  const users = allUsers.filter((u) => RETRY_EMAILS.includes(u.email));
 
   if (users.length === 0) {
     return NextResponse.json({ event: event.name, emailsSent: 0, errors: [] });
